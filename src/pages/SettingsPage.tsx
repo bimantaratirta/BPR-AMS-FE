@@ -1,11 +1,10 @@
-import React, { useState } from "react";
-import { Clock, MapPin, Save, User, Mail, Shield, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Clock, MapPin, Save, User, Mail, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function SettingsPage() {
   const [settings, setSettings] = useState({
     defaultCheckIn: "08:00",
-    halfPointEnd: "08:30",
     lateTolerance: "15",
     defaultRadius: "50",
   });
@@ -40,22 +39,6 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Batas Setengah Poin (0.5)</label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input
-                  type="time"
-                  value={settings.halfPointEnd}
-                  onChange={(e) => setSettings({ ...settings, halfPointEnd: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Check-in antara 08:01 dan batas ini mendapat 0.5 poin (Terlambat). Setelahnya 0 poin.
-              </p>
-            </div>
-
-            <div>
               <label className="text-sm font-medium text-gray-700 mb-1.5 block">Radius Default (meter)</label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -67,40 +50,6 @@ export function SettingsPage() {
                 />
               </div>
               <p className="text-xs text-gray-400 mt-1">Radius geofencing default untuk check-in</p>
-            </div>
-
-            {/* Point Rules Summary */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertCircle size={16} className="text-blue-600" />
-                <h4 className="text-sm font-semibold text-blue-800">Aturan Poin</h4>
-              </div>
-              <div className="space-y-2 text-xs text-blue-700">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span>
-                    Sampai {settings.defaultCheckIn} → <strong>1 poin</strong> (Hadir)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                  <span>
-                    08:01 – {settings.halfPointEnd} → <strong>0.5 poin</strong> (Terlambat)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                  <span>
-                    Setelah {settings.halfPointEnd} → <strong>0 poin</strong> (Terlambat)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                  <span>
-                    Izin / Cuti → <strong>0 poin</strong> (absensi dinonaktifkan)
-                  </span>
-                </div>
-              </div>
             </div>
 
             <button

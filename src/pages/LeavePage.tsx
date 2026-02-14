@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Eye, Check, X, Edit3, Calendar, FileText, Clock } from "lucide-react";
+import { Search, Check, X, Edit3, Calendar, FileText, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type LeaveStatus = "pending" | "approved" | "rejected";
@@ -94,11 +94,10 @@ export function LeavePage() {
   const [requests, setRequests] = useState<LeaveRequest[]>(initialRequests);
   const [activeTab, setActiveTab] = useState<LeaveStatus>("pending");
   const [searchTerm, setSearchTerm] = useState("");
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{
-    id: number;
-    action: "approve" | "reject";
-  } | null>(null);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
 
@@ -129,20 +128,19 @@ export function LeavePage() {
     },
   ];
 
-  const handleConfirmAction = () => {
-    if (!confirmAction) return;
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === confirmAction.id
-          ? {
-              ...r,
-              status: confirmAction.action === "approve" ? "approved" : "rejected",
-            }
-          : r,
-      ),
-    );
-    setShowConfirmModal(false);
-    setConfirmAction(null);
+  const confirmApprove = () => {
+    if (!selectedRequest) return;
+    setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? { ...r, status: "approved" as const } : r)));
+    setShowApproveDialog(false);
+    setSelectedRequest(null);
+  };
+
+  const confirmReject = () => {
+    if (!selectedRequest) return;
+    setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? { ...r, status: "rejected" as const } : r)));
+    setShowRejectDialog(false);
+    setSelectedRequest(null);
+    setRejectReason("");
   };
 
   const handleEditSave = () => {
@@ -204,7 +202,7 @@ export function LeavePage() {
             {tab.label}
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                activeTab === tab.key ? "bg-white/20 text-white" : `bg-${tab.color}-50 text-${tab.color}-600`
+                activeTab === tab.key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
               }`}
             >
               {tab.count}
@@ -272,11 +270,8 @@ export function LeavePage() {
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
                   <button
                     onClick={() => {
-                      setConfirmAction({
-                        id: request.id,
-                        action: "approve",
-                      });
-                      setShowConfirmModal(true);
+                      setSelectedRequest(request);
+                      setShowApproveDialog(true);
                     }}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-50 text-green-700 text-sm font-medium hover:bg-green-100 transition-colors"
                   >
@@ -285,11 +280,9 @@ export function LeavePage() {
                   </button>
                   <button
                     onClick={() => {
-                      setConfirmAction({
-                        id: request.id,
-                        action: "reject",
-                      });
-                      setShowConfirmModal(true);
+                      setSelectedRequest(request);
+                      setRejectReason("");
+                      setShowRejectDialog(true);
                     }}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-50 text-red-700 text-sm font-medium hover:bg-red-100 transition-colors"
                   >
@@ -320,45 +313,92 @@ export function LeavePage() {
         )}
       </div>
 
-      {/* Confirm Modal */}
+      {/* Approve Dialog */}
       <AnimatePresence>
-        {showConfirmModal && confirmAction && (
+        {showApproveDialog && selectedRequest && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
-            onClick={() => setShowConfirmModal(false)}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
           >
             <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
             >
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                {confirmAction.action === "approve" ? "Setujui Pengajuan?" : "Tolak Pengajuan?"}
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                {confirmAction.action === "approve"
-                  ? "Pengajuan izin/cuti ini akan disetujui."
-                  : "Pengajuan izin/cuti ini akan ditolak."}
-              </p>
-              <div className="flex items-center gap-3">
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Setujui Permohonan?</h3>
+                <p className="text-gray-500 text-sm">
+                  Anda akan menyetujui permohonan <strong>{selectedRequest.type}</strong> dari{" "}
+                  <strong>{selectedRequest.name}</strong>.
+                </p>
+              </div>
+              <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-center gap-3">
                 <button
-                  onClick={() => setShowConfirmModal(false)}
-                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowApproveDialog(false)}
+                  className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
                 >
                   Batal
                 </button>
                 <button
-                  onClick={handleConfirmAction}
-                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-colors ${
-                    confirmAction.action === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
-                  }`}
+                  onClick={confirmApprove}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium shadow-sm"
                 >
-                  {confirmAction.action === "approve" ? "Setujui" : "Tolak"}
+                  Setujui
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reject Dialog with Reason */}
+      <AnimatePresence>
+        {showRejectDialog && selectedRequest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle size={24} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Tolak Permohonan?</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  Anda akan menolak permohonan ini. Silakan masukkan alasan penolakan (opsional).
+                </p>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-red-500/20 outline-none resize-none h-24"
+                  placeholder="Alasan penolakan..."
+                />
+              </div>
+              <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-center gap-3">
+                <button
+                  onClick={() => setShowRejectDialog(false)}
+                  className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmReject}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium shadow-sm"
+                >
+                  Tolak
                 </button>
               </div>
             </motion.div>

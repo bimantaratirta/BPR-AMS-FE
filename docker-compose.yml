@@ -1,0 +1,9 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bpr-dashboard
+    ports:
+      - "43210:80"
+    restart: unless-stopped

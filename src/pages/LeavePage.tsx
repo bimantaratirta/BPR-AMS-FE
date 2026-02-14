@@ -1,0 +1,456 @@
+import { useState } from "react";
+import { Search, Eye, Check, X, Edit3, Calendar, FileText, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+type LeaveStatus = "pending" | "approved" | "rejected";
+
+interface LeaveRequest {
+  id: number;
+  name: string;
+  nik: string;
+  type: string;
+  dates: string;
+  reason: string;
+  status: LeaveStatus;
+  avatar: string;
+}
+
+const leaveTypes = ["Izin Cuti", "Izin Sakit", "Izin Setengah Hari"];
+
+const initialRequests: LeaveRequest[] = [
+  {
+    id: 1,
+    name: "Dewi Lestari",
+    nik: "2023004",
+    type: "Izin Sakit",
+    dates: "14 Feb 2026",
+    reason: "Demam tinggi dan perlu istirahat",
+    status: "pending",
+    avatar: "DL",
+  },
+  {
+    id: 2,
+    name: "Maya Sari",
+    nik: "2023006",
+    type: "Izin Cuti",
+    dates: "14 - 16 Feb 2026",
+    reason: "Acara pernikahan keluarga",
+    status: "pending",
+    avatar: "MS",
+  },
+  {
+    id: 3,
+    name: "Putri Wulandari",
+    nik: "2023010",
+    type: "Izin Setengah Hari",
+    dates: "14 Feb 2026",
+    reason: "Kontrol ke dokter siang",
+    status: "pending",
+    avatar: "PW",
+  },
+  {
+    id: 4,
+    name: "Andi Pratama",
+    nik: "2023001",
+    type: "Izin Cuti",
+    dates: "10 - 12 Feb 2026",
+    reason: "Liburan keluarga",
+    status: "approved",
+    avatar: "AP",
+  },
+  {
+    id: 5,
+    name: "Siti Rahayu",
+    nik: "2023002",
+    type: "Izin Sakit",
+    dates: "8 - 9 Feb 2026",
+    reason: "Flu berat",
+    status: "approved",
+    avatar: "SR",
+  },
+  {
+    id: 6,
+    name: "Ahmad Fauzi",
+    nik: "2023007",
+    type: "Izin Cuti",
+    dates: "20 - 22 Feb 2026",
+    reason: "Acara keluarga di luar kota",
+    status: "rejected",
+    avatar: "AF",
+  },
+  {
+    id: 7,
+    name: "Budi Santoso",
+    nik: "2023003",
+    type: "Izin Setengah Hari",
+    dates: "5 Feb 2026",
+    reason: "Keperluan ke bank",
+    status: "approved",
+    avatar: "BS",
+  },
+];
+
+export function LeavePage() {
+  const [requests, setRequests] = useState<LeaveRequest[]>(initialRequests);
+  const [activeTab, setActiveTab] = useState<LeaveStatus>("pending");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    id: number;
+    action: "approve" | "reject";
+  } | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+
+  const filteredRequests = requests.filter((r) => {
+    const matchStatus = r.status === activeTab;
+    const matchSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.nik.includes(searchTerm);
+    return matchStatus && matchSearch;
+  });
+
+  const tabs = [
+    {
+      key: "pending" as LeaveStatus,
+      label: "Menunggu",
+      count: requests.filter((r) => r.status === "pending").length,
+      color: "amber",
+    },
+    {
+      key: "approved" as LeaveStatus,
+      label: "Disetujui",
+      count: requests.filter((r) => r.status === "approved").length,
+      color: "green",
+    },
+    {
+      key: "rejected" as LeaveStatus,
+      label: "Ditolak",
+      count: requests.filter((r) => r.status === "rejected").length,
+      color: "red",
+    },
+  ];
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === confirmAction.id
+          ? {
+              ...r,
+              status: confirmAction.action === "approve" ? "approved" : "rejected",
+            }
+          : r,
+      ),
+    );
+    setShowConfirmModal(false);
+    setConfirmAction(null);
+  };
+
+  const handleEditSave = () => {
+    if (!editingRequest) return;
+    setRequests((prev) => prev.map((r) => (r.id === editingRequest.id ? editingRequest : r)));
+    setShowEditModal(false);
+    setEditingRequest(null);
+  };
+
+  const getStatusBadge = (status: LeaveStatus) => {
+    switch (status) {
+      case "pending":
+        return "bg-amber-50 text-amber-700 border-amber-200";
+      case "approved":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "rejected":
+        return "bg-red-50 text-red-700 border-red-200";
+    }
+  };
+
+  const getStatusLabel = (status: LeaveStatus) => {
+    switch (status) {
+      case "pending":
+        return "Menunggu";
+      case "approved":
+        return "Disetujui";
+      case "rejected":
+        return "Ditolak";
+    }
+  };
+
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case "Izin Cuti":
+        return "bg-blue-50 text-blue-700";
+      case "Izin Sakit":
+        return "bg-purple-50 text-purple-700";
+      case "Izin Setengah Hari":
+        return "bg-indigo-50 text-indigo-700";
+      default:
+        return "bg-gray-50 text-gray-700";
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      {/* Tabs */}
+      <div className="flex items-center gap-2 mb-6">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === tab.key
+                ? "bg-blue-600 text-white shadow-sm"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            {tab.label}
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                activeTab === tab.key ? "bg-white/20 text-white" : `bg-${tab.color}-50 text-${tab.color}-600`
+              }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="bg-white rounded-xl p-4 mb-6 border border-gray-100 shadow-sm">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Cari nama atau NIK..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
+          />
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div className="space-y-4">
+        <AnimatePresence mode="wait">
+          {filteredRequests.map((request) => (
+            <motion.div
+              key={request.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {request.avatar}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{request.name}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">NIK: {request.nik}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getTypeBadge(request.type)}`}>
+                        {request.type}
+                      </span>
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Calendar size={12} />
+                        {request.dates}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">{request.reason}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${getStatusBadge(request.status)}`}
+                  >
+                    {getStatusLabel(request.status)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              {request.status === "pending" && (
+                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => {
+                      setConfirmAction({
+                        id: request.id,
+                        action: "approve",
+                      });
+                      setShowConfirmModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-50 text-green-700 text-sm font-medium hover:bg-green-100 transition-colors"
+                  >
+                    <Check size={16} />
+                    Setujui
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmAction({
+                        id: request.id,
+                        action: "reject",
+                      });
+                      setShowConfirmModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-50 text-red-700 text-sm font-medium hover:bg-red-100 transition-colors"
+                  >
+                    <X size={16} />
+                    Tolak
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingRequest(request);
+                      setShowEditModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-50 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    <Edit3 size={16} />
+                    Edit
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {filteredRequests.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+            <FileText size={40} className="mx-auto text-gray-300 mb-3" />
+            <p className="text-sm text-gray-400">Tidak ada pengajuan ditemukan</p>
+          </div>
+        )}
+      </div>
+
+      {/* Confirm Modal */}
+      <AnimatePresence>
+        {showConfirmModal && confirmAction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+            onClick={() => setShowConfirmModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {confirmAction.action === "approve" ? "Setujui Pengajuan?" : "Tolak Pengajuan?"}
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                {confirmAction.action === "approve"
+                  ? "Pengajuan izin/cuti ini akan disetujui."
+                  : "Pengajuan izin/cuti ini akan ditolak."}
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleConfirmAction}
+                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-colors ${
+                    confirmAction.action === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
+                  }`}
+                >
+                  {confirmAction.action === "approve" ? "Setujui" : "Tolak"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && editingRequest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+            onClick={() => setShowEditModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Edit Pengajuan</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Jenis Izin</label>
+                  <select
+                    value={editingRequest.type}
+                    onChange={(e) =>
+                      setEditingRequest({
+                        ...editingRequest,
+                        type: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
+                  >
+                    {leaveTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Tanggal</label>
+                  <input
+                    type="text"
+                    value={editingRequest.dates}
+                    onChange={(e) =>
+                      setEditingRequest({
+                        ...editingRequest,
+                        dates: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Alasan</label>
+                  <textarea
+                    value={editingRequest.reason}
+                    onChange={(e) =>
+                      setEditingRequest({
+                        ...editingRequest,
+                        reason: e.target.value,
+                      })
+                    }
+                    rows={3}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 resize-none"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Simpan
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}

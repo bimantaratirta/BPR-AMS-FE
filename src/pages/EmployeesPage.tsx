@@ -1,6 +1,18 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, Plus, Edit2, Trash2, Smartphone, X, AlertTriangle, ChevronDown, Eye, EyeOff, Users, WifiOff } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Plus,
+  Edit2,
+  Trash2,
+  Smartphone,
+  X,
+  AlertTriangle,
+  ChevronDown,
+  Users,
+  WifiOff,
+} from "lucide-react";
 interface Employee {
   nik: string;
   name: string;
@@ -8,8 +20,8 @@ interface Employee {
   role: string;
   phone: string;
   email: string;
-  password: string;
-  deviceId: boolean;
+  deviceId: string | null;
+  isActive: boolean;
 }
 export function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([
@@ -20,8 +32,8 @@ export function EmployeesPage() {
       role: "IT Support",
       phone: "081234567890",
       email: "andi.pratama@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      isActive: true,
     },
     {
       nik: "2023002",
@@ -30,8 +42,8 @@ export function EmployeesPage() {
       role: "HR Manager",
       phone: "081234567891",
       email: "siti.rahayu@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      isActive: true,
     },
     {
       nik: "2023003",
@@ -40,8 +52,8 @@ export function EmployeesPage() {
       role: "Finance Staff",
       phone: "081234567892",
       email: "budi.santoso@bpr.co.id",
-      password: "pass123",
-      deviceId: false,
+      deviceId: null,
+      isActive: true,
     },
     {
       nik: "2023004",
@@ -50,8 +62,8 @@ export function EmployeesPage() {
       role: "Marketing",
       phone: "081234567893",
       email: "dewi.lestari@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "d4e5f6a7-b8c9-0123-defg-h34567890123",
+      isActive: true,
     },
     {
       nik: "2023005",
@@ -60,8 +72,8 @@ export function EmployeesPage() {
       role: "Operations",
       phone: "081234567894",
       email: "rizki.hidayat@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "e5f6a7b8-c9d0-1234-efgh-i45678901234",
+      isActive: true,
     },
     {
       nik: "2023006",
@@ -70,8 +82,8 @@ export function EmployeesPage() {
       role: "Sales",
       phone: "081234567895",
       email: "putri.wulandari@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "f6a7b8c9-d0e1-2345-fghi-j56789012345",
+      isActive: true,
     },
     {
       nik: "2023007",
@@ -80,8 +92,8 @@ export function EmployeesPage() {
       role: "Teller",
       phone: "081234567896",
       email: "ahmad.fauzi@bpr.co.id",
-      password: "pass123",
-      deviceId: false,
+      deviceId: null,
+      isActive: true,
     },
     {
       nik: "2023008",
@@ -90,8 +102,8 @@ export function EmployeesPage() {
       role: "CS",
       phone: "081234567897",
       email: "ratna.sari@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "h8i9j0k1-l2m3-4567-ijkl-n89012345678",
+      isActive: true,
     },
     {
       nik: "2023009",
@@ -100,8 +112,8 @@ export function EmployeesPage() {
       role: "Security",
       phone: "081234567898",
       email: "eko.prasetyo@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "i9j0k1l2-m3n4-5678-jklm-o90123456789",
+      isActive: true,
     },
     {
       nik: "2023010",
@@ -110,8 +122,8 @@ export function EmployeesPage() {
       role: "Admin",
       phone: "081234567899",
       email: "nina.marlina@bpr.co.id",
-      password: "pass123",
-      deviceId: true,
+      deviceId: "j0k1l2m3-n4o5-6789-klmn-p01234567890",
+      isActive: true,
     },
   ]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -123,7 +135,6 @@ export function EmployeesPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [formData, setFormData] = useState<Employee>({
     nik: "",
@@ -132,16 +143,16 @@ export function EmployeesPage() {
     role: "",
     phone: "",
     email: "",
-    password: "",
-    deviceId: false,
+    deviceId: null,
+    isActive: true,
   });
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.nik.includes(searchTerm);
     const matchesBranch = branchFilter === "Semua" || emp.branch === branchFilter;
     const matchesDevice =
       deviceFilter === "all" ||
-      (deviceFilter === "registered" && emp.deviceId) ||
-      (deviceFilter === "unregistered" && !emp.deviceId);
+      (deviceFilter === "registered" && emp.deviceId !== null) ||
+      (deviceFilter === "unregistered" && emp.deviceId === null);
     return matchesSearch && matchesBranch && matchesDevice;
   });
   const itemsPerPage = 5;
@@ -155,19 +166,14 @@ export function EmployeesPage() {
       role: "",
       phone: "",
       email: "",
-      password: "",
-      deviceId: false,
+      deviceId: null,
+      isActive: true,
     });
-    setShowPassword(false);
     setShowAddModal(true);
   };
   const handleEdit = (emp: Employee) => {
     setSelectedEmployee(emp);
-    setFormData({
-      ...emp,
-      password: "",
-    });
-    setShowPassword(false);
+    setFormData({ ...emp });
     setShowEditModal(true);
   };
   const handleDeleteClick = (emp: Employee) => {
@@ -183,22 +189,13 @@ export function EmployeesPage() {
       ...employees,
       {
         ...formData,
-        deviceId: false,
+        deviceId: null,
       },
     ]);
     setShowAddModal(false);
   };
   const updateEmployee = () => {
-    setEmployees(
-      employees.map((emp) =>
-        emp.nik === selectedEmployee?.nik
-          ? {
-              ...formData,
-              password: formData.password || emp.password,
-            }
-          : emp,
-      ),
-    );
+    setEmployees(employees.map((emp) => (emp.nik === selectedEmployee?.nik ? { ...formData } : emp)));
     setShowEditModal(false);
   };
   const deleteEmployee = () => {
@@ -211,7 +208,7 @@ export function EmployeesPage() {
         emp.nik === selectedEmployee?.nik
           ? {
               ...emp,
-              deviceId: false,
+              deviceId: null,
             }
           : emp,
       ),
@@ -301,7 +298,7 @@ export function EmployeesPage() {
           {
             key: "registered" as const,
             label: "Terdaftar",
-            value: employees.filter((e) => e.deviceId).length,
+            value: employees.filter((e) => e.deviceId !== null).length,
             icon: Smartphone,
             color: "text-emerald-600",
             bg: "bg-emerald-50",
@@ -310,7 +307,7 @@ export function EmployeesPage() {
           {
             key: "unregistered" as const,
             label: "Belum Ada",
-            value: employees.filter((e) => !e.deviceId).length,
+            value: employees.filter((e) => e.deviceId === null).length,
             icon: WifiOff,
             color: "text-red-600",
             bg: "bg-red-50",
@@ -324,13 +321,17 @@ export function EmployeesPage() {
               setCurrentPage(1);
             }}
             className={`bg-white p-4 rounded-xl shadow-sm border transition-all text-left ${
-              deviceFilter === card.key ? `${card.border} ring-1 ring-offset-0 ring-current ${card.color}` : "border-gray-100 hover:border-gray-200"
+              deviceFilter === card.key
+                ? `${card.border} ring-1 ring-offset-0 ring-current ${card.color}`
+                : "border-gray-100 hover:border-gray-200"
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">{card.label}</p>
-                <p className={`text-2xl font-bold mt-1 ${deviceFilter === card.key ? card.color : "text-gray-900"}`}>{card.value}</p>
+                <p className={`text-2xl font-bold mt-1 ${deviceFilter === card.key ? card.color : "text-gray-900"}`}>
+                  {card.value}
+                </p>
               </div>
               <div className={`w-10 h-10 rounded-lg ${card.bg} flex items-center justify-center`}>
                 <card.icon size={20} className={card.color} />
@@ -377,12 +378,12 @@ export function EmployeesPage() {
                     <td className="px-6 py-4 text-sm text-gray-500">{employee.role}</td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${employee.deviceId ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${employee.deviceId !== null ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${employee.deviceId ? "bg-emerald-500" : "bg-gray-400"}`}
+                          className={`w-1.5 h-1.5 rounded-full ${employee.deviceId !== null ? "bg-emerald-500" : "bg-gray-400"}`}
                         ></span>
-                        {employee.deviceId ? "Terdaftar" : "Belum Ada"}
+                        {employee.deviceId !== null ? "Terdaftar" : "Belum Ada"}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -566,33 +567,7 @@ export function EmployeesPage() {
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    {showEditModal ? "Password Baru (kosongkan jika tidak diubah)" : "Password"}
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          password: e.target.value,
-                        })
-                      }
-                      placeholder={showEditModal ? "Kosongkan jika tidak diubah" : "Masukkan password"}
-                      className="w-full px-3 py-2 pr-10 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
-                    />
 
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Kantor Cabang</label>
                   <select

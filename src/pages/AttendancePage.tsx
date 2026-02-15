@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, CheckCircle2, Camera } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-type AttendanceStatus = "Hadir" | "Terlambat" | "Izin Cuti" | "Izin Sakit" | "Izin Setengah Hari";
+type AttendanceStatus = "Hadir" | "Terlambat" | "Alpha" | "Izin Cuti" | "Izin Sakit" | "Izin Setengah Hari";
 
 interface AttendanceRecord {
   date: string;
@@ -14,7 +14,7 @@ interface AttendanceRecord {
   duration: string;
   status: AttendanceStatus;
   poin: number;
-  photo?: string;
+  checkInPhoto?: string;
 }
 
 // Helper: calculate points based on check-in time
@@ -58,7 +58,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:45", "17:05"),
     status: determineStatus("07:45"),
     poin: calculatePoints("07:45"),
-    photo: "foto_andi_14feb.jpg",
+    checkInPhoto: "foto_andi_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -70,7 +70,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:50", "17:10"),
     status: determineStatus("07:50"),
     poin: calculatePoints("07:50"),
-    photo: "foto_siti_14feb.jpg",
+    checkInPhoto: "foto_siti_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -82,7 +82,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:15", "17:20"),
     status: determineStatus("08:15"),
     poin: calculatePoints("08:15"),
-    photo: "foto_budi_14feb.jpg",
+    checkInPhoto: "foto_budi_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -105,7 +105,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:35", "17:00"),
     status: determineStatus("08:35"),
     poin: calculatePoints("08:35"),
-    photo: "foto_rizki_14feb.jpg",
+    checkInPhoto: "foto_rizki_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -128,7 +128,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:55", "17:02"),
     status: determineStatus("07:55"),
     poin: calculatePoints("07:55"),
-    photo: "foto_ahmad_14feb.jpg",
+    checkInPhoto: "foto_ahmad_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -140,7 +140,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:25", "17:15"),
     status: determineStatus("08:25"),
     poin: calculatePoints("08:25"),
-    photo: "foto_lina_14feb.jpg",
+    checkInPhoto: "foto_lina_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -152,7 +152,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:58", "17:00"),
     status: determineStatus("07:58"),
     poin: calculatePoints("07:58"),
-    photo: "foto_hendra_14feb.jpg",
+    checkInPhoto: "foto_hendra_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -164,7 +164,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:05", "12:00"),
     status: "Izin Setengah Hari",
     poin: calculatePoints("08:05"),
-    photo: "foto_putri_14feb.jpg",
+    checkInPhoto: "foto_putri_14feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -176,7 +176,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:10", "17:00"),
     status: determineStatus("08:10"),
     poin: calculatePoints("08:10"),
-    photo: "foto_andi_13feb.jpg",
+    checkInPhoto: "foto_andi_13feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -188,7 +188,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:00", "17:05"),
     status: determineStatus("08:00"),
     poin: calculatePoints("08:00"),
-    photo: "foto_siti_13feb.jpg",
+    checkInPhoto: "foto_siti_13feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -200,7 +200,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:01", "17:10"),
     status: determineStatus("08:01"),
     poin: calculatePoints("08:01"),
-    photo: "foto_budi_13feb.jpg",
+    checkInPhoto: "foto_budi_13feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -212,7 +212,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:15", "17:15"),
     status: determineStatus("08:15"),
     poin: calculatePoints("08:15"),
-    photo: "foto_ahmad_13feb.jpg",
+    checkInPhoto: "foto_ahmad_13feb.jpg",
   },
 ];
 
@@ -268,6 +268,8 @@ export function AttendancePage() {
         return "bg-purple-50 text-purple-700 border-purple-200";
       case "Izin Setengah Hari":
         return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      case "Alpha":
+        return "bg-red-50 text-red-700 border-red-200";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200";
     }
@@ -437,10 +439,10 @@ export function AttendancePage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    {record.photo ? (
+                    {record.checkInPhoto ? (
                       <button
                         onClick={() => {
-                          setSelectedPhoto({ photo: record.photo!, name: record.name, date: record.date });
+                          setSelectedPhoto({ photo: record.checkInPhoto!, name: record.name, date: record.date });
                           setShowPhotoModal(true);
                         }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors"

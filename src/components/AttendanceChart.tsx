@@ -4,32 +4,32 @@ const data = [
   {
     name: "Sen",
     hadir: 220,
-    tidakHadir: 28,
+    alpha: 28,
   },
   {
     name: "Sel",
     hadir: 235,
-    tidakHadir: 13,
+    alpha: 13,
   },
   {
     name: "Rab",
     hadir: 228,
-    tidakHadir: 20,
+    alpha: 20,
   },
   {
     name: "Kam",
     hadir: 242,
-    tidakHadir: 6,
+    alpha: 6,
   },
   {
     name: "Jum",
     hadir: 215,
-    tidakHadir: 33,
+    alpha: 33,
   },
   {
     name: "Sab",
     hadir: 200,
-    tidakHadir: 48,
+    alpha: 48,
   },
 ];
 
@@ -96,7 +96,7 @@ export function AttendanceChart() {
 
             <Bar dataKey="hadir" name="Hadir" fill="#2563EB" radius={[6, 6, 0, 0]} />
 
-            <Bar dataKey="tidakHadir" name="Tidak Hadir" fill="#FCA5A5" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="alpha" name="Alpha" fill="#FCA5A5" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

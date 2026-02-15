@@ -66,7 +66,7 @@ export function StatCards() {
       colorClass: "border-amber-100",
     },
     {
-      title: "Tidak Hadir",
+      title: "Alpha",
       value: "17",
       change: "+1.2%",
       trend: "up" as const,

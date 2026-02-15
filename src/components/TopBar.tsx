@@ -22,6 +22,8 @@ export function TopBar({ activePage }: TopBarProps) {
         return "Monitoring Absensi";
       case "leave":
         return "Pengajuan Izin & Cuti";
+      case "points":
+        return "Poin Kehadiran";
       case "reports":
         return "Laporan & Ekspor Data";
       case "settings":
@@ -44,6 +46,8 @@ export function TopBar({ activePage }: TopBarProps) {
         return "Monitoring";
       case "leave":
         return "Persetujuan";
+      case "points":
+        return "Poin";
       case "reports":
         return "Analitik";
       case "settings":

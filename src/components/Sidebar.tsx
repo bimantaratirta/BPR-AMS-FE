@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ShieldCheck,
   LogOut,
+  Star,
 } from "lucide-react";
 interface SidebarProps {
   activePage: string;
@@ -41,6 +42,11 @@ export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
       id: "leave",
       icon: CalendarDays,
       label: "Izin & Cuti",
+    },
+    {
+      id: "points",
+      icon: Star,
+      label: "Poin Kehadiran",
     },
     {
       id: "reports",

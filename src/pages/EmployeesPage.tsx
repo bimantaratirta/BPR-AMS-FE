@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, Plus, Edit2, Trash2, Smartphone, X, AlertTriangle, ChevronDown, Eye, EyeOff } from "lucide-react";
+import { Search, Filter, Plus, Edit2, Trash2, Smartphone, X, AlertTriangle, ChevronDown, Eye, EyeOff, Users, WifiOff } from "lucide-react";
 interface Employee {
   nik: string;
   name: string;
@@ -116,6 +116,7 @@ export function EmployeesPage() {
   ]);
   const [searchTerm, setSearchTerm] = useState("");
   const [branchFilter, setBranchFilter] = useState("Semua");
+  const [deviceFilter, setDeviceFilter] = useState<"all" | "registered" | "unregistered">("all");
   const [showBranchFilter, setShowBranchFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -137,7 +138,11 @@ export function EmployeesPage() {
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.nik.includes(searchTerm);
     const matchesBranch = branchFilter === "Semua" || emp.branch === branchFilter;
-    return matchesSearch && matchesBranch;
+    const matchesDevice =
+      deviceFilter === "all" ||
+      (deviceFilter === "registered" && emp.deviceId) ||
+      (deviceFilter === "unregistered" && !emp.deviceId);
+    return matchesSearch && matchesBranch && matchesDevice;
   });
   const itemsPerPage = 5;
   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
@@ -279,6 +284,60 @@ export function EmployeesPage() {
           <Plus size={20} />
           <span>Tambah Karyawan</span>
         </button>
+      </div>
+
+      {/* Device Summary Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          {
+            key: "all" as const,
+            label: "Semua Device",
+            value: employees.length,
+            icon: Users,
+            color: "text-blue-600",
+            bg: "bg-blue-50",
+            border: "border-blue-200",
+          },
+          {
+            key: "registered" as const,
+            label: "Terdaftar",
+            value: employees.filter((e) => e.deviceId).length,
+            icon: Smartphone,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+            border: "border-emerald-200",
+          },
+          {
+            key: "unregistered" as const,
+            label: "Belum Ada",
+            value: employees.filter((e) => !e.deviceId).length,
+            icon: WifiOff,
+            color: "text-red-600",
+            bg: "bg-red-50",
+            border: "border-red-200",
+          },
+        ].map((card) => (
+          <button
+            key={card.key}
+            onClick={() => {
+              setDeviceFilter(card.key);
+              setCurrentPage(1);
+            }}
+            className={`bg-white p-4 rounded-xl shadow-sm border transition-all text-left ${
+              deviceFilter === card.key ? `${card.border} ring-1 ring-offset-0 ring-current ${card.color}` : "border-gray-100 hover:border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">{card.label}</p>
+                <p className={`text-2xl font-bold mt-1 ${deviceFilter === card.key ? card.color : "text-gray-900"}`}>{card.value}</p>
+              </div>
+              <div className={`w-10 h-10 rounded-lg ${card.bg} flex items-center justify-center`}>
+                <card.icon size={20} className={card.color} />
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
 
       {/* Data Table */}

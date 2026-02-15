@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Search, Check, X, Edit3, Calendar, FileText, AlertCircle } from "lucide-react";
+import { Search, Check, X, Edit3, Calendar, FileText, AlertCircle, Paperclip } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-type LeaveStatus = "pending" | "approved" | "rejected";
+type LeaveStatus = "Menunggu" | "Disetujui" | "Ditolak";
 
 interface LeaveRequest {
   id: number;
@@ -13,6 +13,7 @@ interface LeaveRequest {
   reason: string;
   status: LeaveStatus;
   avatar: string;
+  attachment?: string;
 }
 
 const leaveTypes = ["Izin Cuti", "Izin Sakit", "Izin Setengah Hari"];
@@ -25,8 +26,9 @@ const initialRequests: LeaveRequest[] = [
     type: "Izin Sakit",
     dates: "14 Feb 2026",
     reason: "Demam tinggi dan perlu istirahat",
-    status: "pending",
+    status: "Menunggu",
     avatar: "DL",
+    attachment: "surat_dokter_dewi.pdf",
   },
   {
     id: 2,
@@ -35,7 +37,7 @@ const initialRequests: LeaveRequest[] = [
     type: "Izin Cuti",
     dates: "14 - 16 Feb 2026",
     reason: "Acara pernikahan keluarga",
-    status: "pending",
+    status: "Menunggu",
     avatar: "MS",
   },
   {
@@ -45,7 +47,7 @@ const initialRequests: LeaveRequest[] = [
     type: "Izin Setengah Hari",
     dates: "14 Feb 2026",
     reason: "Kontrol ke dokter siang",
-    status: "pending",
+    status: "Menunggu",
     avatar: "PW",
   },
   {
@@ -55,7 +57,7 @@ const initialRequests: LeaveRequest[] = [
     type: "Izin Cuti",
     dates: "10 - 12 Feb 2026",
     reason: "Liburan keluarga",
-    status: "approved",
+    status: "Disetujui",
     avatar: "AP",
   },
   {
@@ -65,8 +67,9 @@ const initialRequests: LeaveRequest[] = [
     type: "Izin Sakit",
     dates: "8 - 9 Feb 2026",
     reason: "Flu berat",
-    status: "approved",
+    status: "Disetujui",
     avatar: "SR",
+    attachment: "surat_dokter_siti.jpg",
   },
   {
     id: 6,
@@ -75,7 +78,7 @@ const initialRequests: LeaveRequest[] = [
     type: "Izin Cuti",
     dates: "20 - 22 Feb 2026",
     reason: "Acara keluarga di luar kota",
-    status: "rejected",
+    status: "Ditolak",
     avatar: "AF",
   },
   {
@@ -85,14 +88,14 @@ const initialRequests: LeaveRequest[] = [
     type: "Izin Setengah Hari",
     dates: "5 Feb 2026",
     reason: "Keperluan ke bank",
-    status: "approved",
+    status: "Disetujui",
     avatar: "BS",
   },
 ];
 
 export function LeavePage() {
   const [requests, setRequests] = useState<LeaveRequest[]>(initialRequests);
-  const [activeTab, setActiveTab] = useState<LeaveStatus>("pending");
+  const [activeTab, setActiveTab] = useState<LeaveStatus>("Menunggu");
   const [searchTerm, setSearchTerm] = useState("");
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -100,6 +103,8 @@ export function LeavePage() {
   const [rejectReason, setRejectReason] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<{ filename: string; name: string } | null>(null);
 
   const filteredRequests = requests.filter((r) => {
     const matchStatus = r.status === activeTab;
@@ -109,35 +114,35 @@ export function LeavePage() {
 
   const tabs = [
     {
-      key: "pending" as LeaveStatus,
+      key: "Menunggu" as LeaveStatus,
       label: "Menunggu",
-      count: requests.filter((r) => r.status === "pending").length,
+      count: requests.filter((r) => r.status === "Menunggu").length,
       color: "amber",
     },
     {
-      key: "approved" as LeaveStatus,
+      key: "Disetujui" as LeaveStatus,
       label: "Disetujui",
-      count: requests.filter((r) => r.status === "approved").length,
+      count: requests.filter((r) => r.status === "Disetujui").length,
       color: "green",
     },
     {
-      key: "rejected" as LeaveStatus,
+      key: "Ditolak" as LeaveStatus,
       label: "Ditolak",
-      count: requests.filter((r) => r.status === "rejected").length,
+      count: requests.filter((r) => r.status === "Ditolak").length,
       color: "red",
     },
   ];
 
   const confirmApprove = () => {
     if (!selectedRequest) return;
-    setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? { ...r, status: "approved" as const } : r)));
+    setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? { ...r, status: "Disetujui" as const } : r)));
     setShowApproveDialog(false);
     setSelectedRequest(null);
   };
 
   const confirmReject = () => {
     if (!selectedRequest) return;
-    setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? { ...r, status: "rejected" as const } : r)));
+    setRequests((prev) => prev.map((r) => (r.id === selectedRequest.id ? { ...r, status: "Ditolak" as const } : r)));
     setShowRejectDialog(false);
     setSelectedRequest(null);
     setRejectReason("");
@@ -152,22 +157,22 @@ export function LeavePage() {
 
   const getStatusBadge = (status: LeaveStatus) => {
     switch (status) {
-      case "pending":
+      case "Menunggu":
         return "bg-amber-50 text-amber-700 border-amber-200";
-      case "approved":
+      case "Disetujui":
         return "bg-green-50 text-green-700 border-green-200";
-      case "rejected":
+      case "Ditolak":
         return "bg-red-50 text-red-700 border-red-200";
     }
   };
 
   const getStatusLabel = (status: LeaveStatus) => {
     switch (status) {
-      case "pending":
+      case "Menunggu":
         return "Menunggu";
-      case "approved":
+      case "Disetujui":
         return "Disetujui";
-      case "rejected":
+      case "Ditolak":
         return "Ditolak";
     }
   };
@@ -254,6 +259,18 @@ export function LeavePage() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-2">{request.reason}</p>
+                    {request.attachment && (
+                      <button
+                        onClick={() => {
+                          setSelectedAttachment({ filename: request.attachment!, name: request.name });
+                          setShowAttachmentModal(true);
+                        }}
+                        className="flex items-center gap-1.5 mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                      >
+                        <Paperclip size={12} />
+                        Lampiran
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -266,7 +283,7 @@ export function LeavePage() {
               </div>
 
               {/* Actions */}
-              {request.status === "pending" && (
+              {request.status === "Menunggu" && (
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
                   <button
                     onClick={() => {
@@ -485,6 +502,49 @@ export function LeavePage() {
                   className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
                 >
                   Simpan
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Attachment Preview Modal */}
+      <AnimatePresence>
+        {showAttachmentModal && selectedAttachment && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+            onClick={() => setShowAttachmentModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Paperclip size={28} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Lampiran</h3>
+                <p className="text-sm text-gray-500 mb-4">Dari: {selectedAttachment.name}</p>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <div className="flex items-center justify-center gap-2 text-gray-600">
+                    <FileText size={20} />
+                    <span className="text-sm font-medium">{selectedAttachment.filename}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
+                <button
+                  onClick={() => setShowAttachmentModal(false)}
+                  className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
+                  Tutup
                 </button>
               </div>
             </motion.div>

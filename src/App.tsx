@@ -10,6 +10,7 @@ import { BranchesPage } from './pages/BranchesPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { LeavePage } from './pages/LeavePage';
 import { ReportsPage } from './pages/ReportsPage';
+import { PointsPage } from './pages/PointsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { AdminsPage } from './pages/AdminsPage';
 export function App() {
@@ -40,6 +41,8 @@ export function App() {
         return <LeavePage />;
       case 'reports':
         return <ReportsPage />;
+      case 'points':
+        return <PointsPage />;
       case 'settings':
         return <SettingsPage />;
       case 'admins':

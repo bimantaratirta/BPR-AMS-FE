@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, CheckCircle2 } from "lucide-react";
+import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, CheckCircle2, Camera } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type AttendanceStatus = "Hadir" | "Terlambat" | "Izin Cuti" | "Izin Sakit" | "Izin Setengah Hari";
@@ -14,6 +14,7 @@ interface AttendanceRecord {
   duration: string;
   status: AttendanceStatus;
   poin: number;
+  photo?: string;
 }
 
 // Helper: calculate points based on check-in time
@@ -57,6 +58,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:45", "17:05"),
     status: determineStatus("07:45"),
     poin: calculatePoints("07:45"),
+    photo: "foto_andi_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -68,6 +70,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:50", "17:10"),
     status: determineStatus("07:50"),
     poin: calculatePoints("07:50"),
+    photo: "foto_siti_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -79,6 +82,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:15", "17:20"),
     status: determineStatus("08:15"),
     poin: calculatePoints("08:15"),
+    photo: "foto_budi_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -101,6 +105,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:35", "17:00"),
     status: determineStatus("08:35"),
     poin: calculatePoints("08:35"),
+    photo: "foto_rizki_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -123,6 +128,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:55", "17:02"),
     status: determineStatus("07:55"),
     poin: calculatePoints("07:55"),
+    photo: "foto_ahmad_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -134,6 +140,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:25", "17:15"),
     status: determineStatus("08:25"),
     poin: calculatePoints("08:25"),
+    photo: "foto_lina_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -145,6 +152,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("07:58", "17:00"),
     status: determineStatus("07:58"),
     poin: calculatePoints("07:58"),
+    photo: "foto_hendra_14feb.jpg",
   },
   {
     date: "14 Feb 2026",
@@ -156,6 +164,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:05", "12:00"),
     status: "Izin Setengah Hari",
     poin: calculatePoints("08:05"),
+    photo: "foto_putri_14feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -167,6 +176,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:10", "17:00"),
     status: determineStatus("08:10"),
     poin: calculatePoints("08:10"),
+    photo: "foto_andi_13feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -178,6 +188,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:00", "17:05"),
     status: determineStatus("08:00"),
     poin: calculatePoints("08:00"),
+    photo: "foto_siti_13feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -189,6 +200,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:01", "17:10"),
     status: determineStatus("08:01"),
     poin: calculatePoints("08:01"),
+    photo: "foto_budi_13feb.jpg",
   },
   {
     date: "13 Feb 2026",
@@ -200,6 +212,7 @@ const attendanceData: AttendanceRecord[] = [
     duration: calculateDuration("08:15", "17:15"),
     status: determineStatus("08:15"),
     poin: calculatePoints("08:15"),
+    photo: "foto_ahmad_13feb.jpg",
   },
 ];
 
@@ -220,6 +233,8 @@ export function AttendancePage() {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ photo: string; name: string; date: string } | null>(null);
 
   const handleExport = () => {
     setShowExportDialog(false);
@@ -385,6 +400,7 @@ export function AttendancePage() {
                 <th className="px-6 py-4 text-center">Keluar</th>
                 <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-center">Poin</th>
+                <th className="px-6 py-4 text-center">Foto</th>
               </tr>
             </thead>
             <tbody>
@@ -420,11 +436,27 @@ export function AttendancePage() {
                       {record.poin}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-center">
+                    {record.photo ? (
+                      <button
+                        onClick={() => {
+                          setSelectedPhoto({ photo: record.photo!, name: record.name, date: record.date });
+                          setShowPhotoModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-medium hover:bg-blue-100 transition-colors"
+                      >
+                        <Camera size={14} />
+                        Lihat
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filteredData.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                     Tidak ada data absensi ditemukan.
                   </td>
                 </tr>
@@ -433,6 +465,49 @@ export function AttendancePage() {
           </table>
         </div>
       </div>
+
+      {/* Photo Preview Modal */}
+      <AnimatePresence>
+        {showPhotoModal && selectedPhoto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowPhotoModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Camera size={28} />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Foto Absensi</h3>
+                <p className="text-sm text-gray-500 mb-1">{selectedPhoto.name}</p>
+                <p className="text-xs text-gray-400 mb-4">{selectedPhoto.date}</p>
+                <div className="bg-gray-50 rounded-xl p-8 border border-gray-200 flex flex-col items-center justify-center gap-2">
+                  <Camera size={40} className="text-gray-300" />
+                  <span className="text-sm font-medium text-gray-500">{selectedPhoto.photo}</span>
+                  <span className="text-xs text-gray-400">Preview foto absensi</span>
+                </div>
+              </div>
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
+                <button
+                  onClick={() => setShowPhotoModal(false)}
+                  className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm"
+                >
+                  Tutup
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Export Dialog */}
       <AnimatePresence>

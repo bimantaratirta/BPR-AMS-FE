@@ -11,59 +11,31 @@ import {
   LogOut,
   Star,
 } from "lucide-react";
+type AdminRole = "SUPER_ADMIN" | "ADMIN" | "VIEWER";
+
 interface SidebarProps {
   activePage: string;
   onNavigate: (page: string) => void;
   onLogout: () => void;
+  userRole?: AdminRole;
+  userName?: string;
+  userEmail?: string;
 }
-export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
-  const navItems = [
-    {
-      id: "dashboard",
-      icon: LayoutDashboard,
-      label: "Beranda",
-    },
-    {
-      id: "employees",
-      icon: Users,
-      label: "Karyawan",
-    },
-    {
-      id: "branches",
-      icon: Building2,
-      label: "Kantor Cabang",
-    },
-    {
-      id: "attendance",
-      icon: ClipboardCheck,
-      label: "Absensi",
-    },
-    {
-      id: "leave",
-      icon: CalendarDays,
-      label: "Izin & Cuti",
-    },
-    {
-      id: "points",
-      icon: Star,
-      label: "Poin Kehadiran",
-    },
-    {
-      id: "reports",
-      icon: BarChart3,
-      label: "Laporan",
-    },
-    {
-      id: "admins",
-      icon: ShieldCheck,
-      label: "Manajemen Admin",
-    },
-    {
-      id: "settings",
-      icon: Settings,
-      label: "Pengaturan",
-    },
-  ];
+
+const allNavItems = [
+  { id: "dashboard", icon: LayoutDashboard, label: "Beranda", roles: ["SUPER_ADMIN", "ADMIN", "VIEWER"] },
+  { id: "employees", icon: Users, label: "Karyawan", roles: ["SUPER_ADMIN", "ADMIN"] },
+  { id: "branches", icon: Building2, label: "Kantor Cabang", roles: ["SUPER_ADMIN", "ADMIN"] },
+  { id: "attendance", icon: ClipboardCheck, label: "Absensi", roles: ["SUPER_ADMIN", "ADMIN", "VIEWER"] },
+  { id: "leave", icon: CalendarDays, label: "Izin & Cuti", roles: ["SUPER_ADMIN", "ADMIN"] },
+  { id: "points", icon: Star, label: "Poin Kehadiran", roles: ["SUPER_ADMIN", "ADMIN", "VIEWER"] },
+  { id: "reports", icon: BarChart3, label: "Laporan", roles: ["SUPER_ADMIN", "ADMIN", "VIEWER"] },
+  { id: "admins", icon: ShieldCheck, label: "Manajemen Admin", roles: ["SUPER_ADMIN"] },
+  { id: "settings", icon: Settings, label: "Pengaturan", roles: ["SUPER_ADMIN", "ADMIN"] },
+];
+
+export function Sidebar({ activePage, onNavigate, onLogout, userRole = "ADMIN", userName, userEmail }: SidebarProps) {
+  const navItems = allNavItems.filter((item) => item.roles.includes(userRole));
 
   return (
     <aside className="fixed left-0 top-0 h-full bg-white border-r border-gray-100 z-50 transition-all duration-300 ease-in-out w-20 hover:w-64 group shadow-sm overflow-hidden flex flex-col">
@@ -105,11 +77,11 @@ export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
       <div className="p-4 border-t border-gray-50 space-y-2">
         <div className="flex items-center gap-4 p-2 min-w-max">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium text-sm shrink-0 shadow-sm">
-            AD
+            {(userName ?? "AD").split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()}
           </div>
           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-left">
-            <p className="text-sm font-semibold text-gray-900">Admin User</p>
-            <p className="text-xs text-gray-500">admin@bpr.co.id</p>
+            <p className="text-sm font-semibold text-gray-900">{userName ?? "Admin"}</p>
+            <p className="text-xs text-gray-500">{userEmail ?? "-"}</p>
           </div>
         </div>
         <button

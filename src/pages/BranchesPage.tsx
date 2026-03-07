@@ -1,8 +1,52 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, Users, Navigation, Edit2, Trash2, Plus, Building2, X, AlertTriangle, Loader2 } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Circle, Popup, useMapEvents, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
+
+// Fix default marker icon (Leaflet + bundler issue)
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+// Fit bounds on initial load only
+function FitBounds({ branches }: { branches: Branch[] }) {
+  const map = useMap();
+  const didFit = React.useRef(false);
+  useEffect(() => {
+    if (didFit.current || branches.length === 0) return;
+    didFit.current = true;
+    const bounds = L.latLngBounds(branches.map((b) => [b.latitude, b.longitude]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  }, [branches, map]);
+  return null;
+}
+
+// Fly to a specific branch when focused
+function FlyTo({ branch }: { branch: Branch | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!branch) return;
+    map.flyTo([branch.latitude, branch.longitude], 16, { duration: 0.8 });
+  }, [branch, map]);
+  return null;
+}
+
+// Component to pick location on click
+function LocationPicker({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onPick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
 
 interface Branch {
   id: string;
@@ -39,6 +83,7 @@ export function BranchesPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [focusedBranchId, setFocusedBranchId] = useState<string | null>(null);
   const emptyForm: BranchForm = { name: "", address: "", latitude: "", longitude: "", radius: "50" };
   const [formData, setFormData] = useState<BranchForm>(emptyForm);
 
@@ -137,16 +182,65 @@ export function BranchesPage() {
       className="space-y-6"
     >
       <Toast toast={toast} />
-      {/* Map placeholder */}
-      <div className="w-full h-64 bg-gray-100 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-        <div className="z-10 flex flex-col items-center gap-3">
-          <div className="p-4 bg-white rounded-full shadow-sm">
-            <MapPin size={32} className="text-blue-500" />
-          </div>
-          <p className="font-medium">Peta Lokasi Kantor Cabang</p>
-          <p className="text-sm text-gray-400">Integrasi Google Maps API</p>
-        </div>
+      {/* Map */}
+      <div className="w-full h-80 rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        {!isLoading && (
+          <MapContainer
+            center={
+              branches.length > 0
+                ? [branches[0].latitude, branches[0].longitude]
+                : [-6.2, 106.8]
+            }
+            zoom={12}
+            className="w-full h-full z-0"
+            scrollWheelZoom={true}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <FitBounds branches={branches} />
+            <FlyTo branch={branches.find((b) => b.id === focusedBranchId) ?? null} />
+            {branches.map((branch) => {
+              const isFocused = focusedBranchId === branch.id;
+              const isDimmed = focusedBranchId !== null && !isFocused;
+              return (
+                <React.Fragment key={branch.id}>
+                  <Marker
+                    position={[branch.latitude, branch.longitude]}
+                    opacity={isDimmed ? 0.4 : 1}
+                    eventHandlers={{
+                      click: () => setFocusedBranchId(isFocused ? null : branch.id),
+                    }}
+                  >
+                    <Popup>
+                      <div className="text-sm">
+                        <strong>{branch.name}</strong>
+                        <br />
+                        <span className="text-gray-500">{branch.address}</span>
+                        <br />
+                        <span className="text-blue-600 font-medium">
+                          Radius: {branch.radius}m · {branch._count?.employees ?? 0} karyawan
+                        </span>
+                      </div>
+                    </Popup>
+                  </Marker>
+                  <Circle
+                    center={[branch.latitude, branch.longitude]}
+                    radius={branch.radius}
+                    pathOptions={{
+                      color: isFocused ? "#2563eb" : "#3b82f6",
+                      fillColor: isFocused ? "#2563eb" : "#3b82f6",
+                      fillOpacity: isDimmed ? 0.05 : isFocused ? 0.2 : 0.12,
+                      weight: isFocused ? 3 : isDimmed ? 1 : 2,
+                      opacity: isDimmed ? 0.3 : 1,
+                    }}
+                  />
+                </React.Fragment>
+              );
+            })}
+          </MapContainer>
+        )}
       </div>
 
       {/* Header */}
@@ -171,7 +265,12 @@ export function BranchesPage() {
           {branches.map((branch) => (
             <div
               key={branch.id}
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group"
+              onClick={() => setFocusedBranchId(focusedBranchId === branch.id ? null : branch.id)}
+              className={`bg-white p-6 rounded-xl shadow-sm border-2 hover:shadow-md transition-all cursor-pointer group ${
+                focusedBranchId === branch.id
+                  ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md"
+                  : "border-gray-100"
+              }`}
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
@@ -188,7 +287,7 @@ export function BranchesPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleEdit(branch)}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -269,6 +368,50 @@ export function BranchesPage() {
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none h-24 resize-none"
                   />
                 </Field>
+                {/* Map picker */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Pilih Lokasi di Peta</label>
+                  <p className="text-xs text-gray-400">Klik pada peta untuk menentukan koordinat</p>
+                  <div className="w-full h-48 rounded-lg border border-gray-200 overflow-hidden">
+                    <MapContainer
+                      center={
+                        formData.latitude && formData.longitude
+                          ? [parseFloat(formData.latitude), parseFloat(formData.longitude)]
+                          : [-6.2, 106.8]
+                      }
+                      zoom={13}
+                      className="w-full h-full z-0"
+                      scrollWheelZoom={true}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <LocationPicker
+                        onPick={(lat, lng) =>
+                          setFormData({ ...formData, latitude: lat.toFixed(6), longitude: lng.toFixed(6) })
+                        }
+                      />
+                      {formData.latitude && formData.longitude && (
+                        <>
+                          <Marker
+                            position={[parseFloat(formData.latitude), parseFloat(formData.longitude)]}
+                          />
+                          <Circle
+                            center={[parseFloat(formData.latitude), parseFloat(formData.longitude)]}
+                            radius={parseInt(formData.radius) || 50}
+                            pathOptions={{
+                              color: "#3b82f6",
+                              fillColor: "#3b82f6",
+                              fillOpacity: 0.15,
+                              weight: 2,
+                            }}
+                          />
+                        </>
+                      )}
+                    </MapContainer>
+                  </div>
+                </div>
                 <div className="grid grid-cols-3 gap-4">
                   <Field label="Latitude">
                     <input

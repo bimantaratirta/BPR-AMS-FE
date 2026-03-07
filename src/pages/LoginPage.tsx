@@ -1,33 +1,55 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Building2, Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
+import api from "../lib/api";
+
 interface LoginPageProps {
-  onLogin: () => void;
+  onLogin: (userInfo: { name: string; email: string; role: string }) => void;
 }
+
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (!email || !password) {
       setError("Email dan password harus diisi.");
       return;
     }
+
     setIsLoading(true);
-    // Simulate login delay
-    setTimeout(() => {
-      if (email === "admin@bpr.co.id" && password === "admin123") {
-        onLogin();
-      } else {
-        setError("Email atau password salah. Coba: admin@bpr.co.id / admin123");
-        setIsLoading(false);
-      }
-    }, 800);
+    try {
+      const response = await api.post("/auth/admin/login", { email, password });
+      const { access_token, refresh_token } = response.data.data ?? response.data;
+
+      // Decode token to get user info
+      const payload = JSON.parse(atob(access_token.split(".")[1]));
+
+      const userInfo = {
+        name: payload.name ?? email.split("@")[0],
+        email,
+        role: payload.role ?? payload.userType ?? "ADMIN",
+        id: payload.id,
+      };
+
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("refresh_token", refresh_token);
+      localStorage.setItem("user_info", JSON.stringify(userInfo));
+
+      onLogin(userInfo);
+    } catch (err: any) {
+      const msg = err.response?.data?.message ?? err.response?.data?.error ?? "Email atau password salah.";
+      setError(typeof msg === "string" ? msg : "Email atau password salah.");
+      setIsLoading(false);
+    }
   };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       {/* Background pattern */}
@@ -39,35 +61,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       />
 
       <motion.div
-        initial={{
-          opacity: 0,
-          y: 30,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        transition={{
-          duration: 0.6,
-          ease: [0.22, 1, 0.36, 1],
-        }}
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-md relative"
       >
         {/* Logo & Header */}
         <div className="text-center mb-8">
           <motion.div
-            initial={{
-              scale: 0.8,
-              opacity: 0,
-            }}
-            animate={{
-              scale: 1,
-              opacity: 1,
-            }}
-            transition={{
-              delay: 0.1,
-              duration: 0.5,
-            }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
             className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white mx-auto mb-5 shadow-lg shadow-blue-600/20"
           >
             <Building2 size={32} />
@@ -84,18 +88,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
             {error && (
               <motion.div
-                initial={{
-                  opacity: 0,
-                  y: -10,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
                 className="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-lg mb-6"
               >
                 <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-
                 <p className="text-sm text-red-600">{error}</p>
               </motion.div>
             )}
@@ -122,7 +119,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     placeholder="Masukkan kata sandi"
                     className="w-full px-4 py-2.5 pr-11 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   />
-
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -148,13 +144,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 )}
               </button>
             </form>
-          </div>
-
-          <div className="px-8 py-4 bg-gray-50 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center">
-              Demo: <span className="font-medium text-gray-500">admin@bpr.co.id</span> /{" "}
-              <span className="font-medium text-gray-500">admin123</span>
-            </p>
           </div>
         </div>
       </motion.div>

@@ -3,6 +3,7 @@ import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, Camera, 
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
+import { useDebounce } from "../hooks/useDebounce";
 
 type AttendanceStatus = "HADIR" | "TERLAMBAT" | "ALPHA" | "CUTI" | "SAKIT" | "SETENGAH_HARI";
 
@@ -77,6 +78,7 @@ export function AttendancePage() {
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranch, setSelectedBranch] = useState("Semua Cabang");
   const [dateFilter, setDateFilter] = useState("");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -110,7 +112,7 @@ export function AttendancePage() {
   const filteredData = records.filter((record) => {
     const name = record.employee?.name ?? "";
     const nik = record.employee?.nik ?? "";
-    const matchSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || nik.includes(searchTerm);
+    const matchSearch = name.toLowerCase().includes(debouncedSearch.toLowerCase()) || nik.includes(debouncedSearch);
     const branchName = record.employee?.branch?.name ?? "";
     const matchBranch = selectedBranch === "Semua Cabang" || branchName === selectedBranch;
     return matchSearch && matchBranch;

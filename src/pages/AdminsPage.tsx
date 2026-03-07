@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, Edit2, Trash2, X, AlertTriangle, Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
+import { useDebounce } from "../hooks/useDebounce";
 
 type AdminRole = "SUPER_ADMIN" | "ADMIN" | "VIEWER";
 type AdminStatus = "ACTIVE" | "INACTIVE";
@@ -40,6 +41,7 @@ export function AdminsPage() {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -67,7 +69,8 @@ export function AdminsPage() {
 
   const filteredAdmins = admins.filter(
     (a) =>
-      a.name.toLowerCase().includes(searchTerm.toLowerCase()) || a.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      a.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      a.email.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
   const handleAdd = () => {

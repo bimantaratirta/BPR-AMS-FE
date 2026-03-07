@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Search, Filter, Star, Clock, CheckCircle2, XCircle, ChevronDown, Loader2, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import api from "../lib/api";
+import { useDebounce } from "../hooks/useDebounce";
 
 interface AggregatedEmployee {
   employeeId: string;
@@ -20,6 +21,7 @@ export function PointsPage() {
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranch, setSelectedBranch] = useState("Semua Cabang");
   const [showBranchFilter, setShowBranchFilter] = useState(false);
   const [startDate, setStartDate] = useState("");
@@ -55,9 +57,12 @@ export function PointsPage() {
 
   const exportCSV = () => {
     const header = "Nama,NIK,Cabang,Tepat Waktu,Setengah Poin,Terlambat,Alpha,Total Poin\n";
-    const rows = filteredData.map((e) =>
-      `"${e.name}","${e.nik}","${e.branch}",${e.hadir},${e.terlambat05},${e.terlambat0},${e.alpha},${e.totalPoin.toFixed(1)}`
-    ).join("\n");
+    const rows = filteredData
+      .map(
+        (e) =>
+          `"${e.name}","${e.nik}","${e.branch}",${e.hadir},${e.terlambat05},${e.terlambat0},${e.alpha},${e.totalPoin.toFixed(1)}`,
+      )
+      .join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -68,7 +73,7 @@ export function PointsPage() {
   };
 
   const filteredData = aggregated.filter((emp) => {
-    const matchSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.nik.includes(searchTerm);
+    const matchSearch = emp.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || emp.nik.includes(debouncedSearch);
     const matchBranch = selectedBranch === "Semua Cabang" || emp.branch === selectedBranch;
     return matchSearch && matchBranch;
   });

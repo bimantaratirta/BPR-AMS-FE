@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
+import { useDebounce } from "../hooks/useDebounce";
 
 interface Employee {
   id: string;
@@ -55,6 +56,7 @@ export function EmployeesPage() {
   const [error, setError] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [branchFilter, setBranchFilter] = useState("Semua");
   const [deviceFilter, setDeviceFilter] = useState<"all" | "registered" | "unregistered">("all");
   const [showBranchFilter, setShowBranchFilter] = useState(false);
@@ -85,7 +87,7 @@ export function EmployeesPage() {
       setIsLoading(true);
       setError("");
       const params: any = { get_all: true, include_relation: ["branch"] };
-      if (searchTerm) params.search = searchTerm;
+      if (debouncedSearch) params.search = debouncedSearch;
       const res = await api.get("/employees", { params });
       const data = res.data?.data ?? res.data;
       setEmployees(Array.isArray(data) ? data : (data?.data ?? []));
@@ -94,7 +96,7 @@ export function EmployeesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     fetchEmployees();
@@ -108,7 +110,8 @@ export function EmployeesPage() {
   }, []);
 
   const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.nik.includes(searchTerm);
+    const matchesSearch =
+      emp.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || emp.nik.includes(debouncedSearch);
     const branchName = emp.branch?.name ?? "";
     const matchesBranch = branchFilter === "Semua" || branchName === branchFilter;
     const matchesDevice =

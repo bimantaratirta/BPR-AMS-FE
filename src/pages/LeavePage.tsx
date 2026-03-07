@@ -3,6 +3,7 @@ import { Search, Check, X, Calendar, FileText, AlertCircle, Paperclip, Loader2 }
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
+import { useDebounce } from "../hooks/useDebounce";
 
 type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 type LeaveStatusDisplay = "Menunggu" | "Disetujui" | "Ditolak";
@@ -78,6 +79,7 @@ export function LeavePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<LeaveStatus>("PENDING");
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -105,7 +107,7 @@ export function LeavePage() {
     const matchStatus = r.status === activeTab;
     const name = r.employee?.name ?? "";
     const nik = r.employee?.nik ?? "";
-    const matchSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || nik.includes(searchTerm);
+    const matchSearch = name.toLowerCase().includes(debouncedSearch.toLowerCase()) || nik.includes(debouncedSearch);
     return matchStatus && matchSearch;
   });
 
@@ -368,7 +370,10 @@ export function LeavePage() {
               </div>
               <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-center gap-3">
                 <button
-                  onClick={() => { setShowRejectDialog(false); setRejectReason(""); }}
+                  onClick={() => {
+                    setShowRejectDialog(false);
+                    setRejectReason("");
+                  }}
                   className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
                 >
                   Batal

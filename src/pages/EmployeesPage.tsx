@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -12,236 +12,243 @@ import {
   ChevronDown,
   Users,
   WifiOff,
+  Loader2,
 } from "lucide-react";
+import api from "../lib/api";
+import { useToast, Toast } from "../components/Toast";
+
 interface Employee {
+  id: string;
   nik: string;
   name: string;
-  branch: string;
+  branchId: string;
+  branch?: { id: string; name: string };
   role: string;
   phone: string;
   email: string;
   deviceId: string | null;
   isActive: boolean;
+  avatar?: string;
 }
+
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface EmployeeForm {
+  nik: string;
+  name: string;
+  branchId: string;
+  role: string;
+  phone: string;
+  email: string;
+  password: string;
+  isActive: boolean;
+}
+
 export function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      nik: "2023001",
-      name: "Andi Pratama",
-      branch: "Kantor Pusat",
-      role: "IT Support",
-      phone: "081234567890",
-      email: "andi.pratama@bpr.co.id",
-      deviceId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      isActive: true,
-    },
-    {
-      nik: "2023002",
-      name: "Siti Rahayu",
-      branch: "Cabang Sudirman",
-      role: "HR Manager",
-      phone: "081234567891",
-      email: "siti.rahayu@bpr.co.id",
-      deviceId: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-      isActive: true,
-    },
-    {
-      nik: "2023003",
-      name: "Budi Santoso",
-      branch: "Cabang Gatot Subroto",
-      role: "Finance Staff",
-      phone: "081234567892",
-      email: "budi.santoso@bpr.co.id",
-      deviceId: null,
-      isActive: true,
-    },
-    {
-      nik: "2023004",
-      name: "Dewi Lestari",
-      branch: "Kas Pasar Minggu",
-      role: "Marketing",
-      phone: "081234567893",
-      email: "dewi.lestari@bpr.co.id",
-      deviceId: "d4e5f6a7-b8c9-0123-defg-h34567890123",
-      isActive: true,
-    },
-    {
-      nik: "2023005",
-      name: "Rizki Hidayat",
-      branch: "Kas Kemang",
-      role: "Operations",
-      phone: "081234567894",
-      email: "rizki.hidayat@bpr.co.id",
-      deviceId: "e5f6a7b8-c9d0-1234-efgh-i45678901234",
-      isActive: true,
-    },
-    {
-      nik: "2023006",
-      name: "Putri Wulandari",
-      branch: "Kantor Pusat",
-      role: "Sales",
-      phone: "081234567895",
-      email: "putri.wulandari@bpr.co.id",
-      deviceId: "f6a7b8c9-d0e1-2345-fghi-j56789012345",
-      isActive: true,
-    },
-    {
-      nik: "2023007",
-      name: "Ahmad Fauzi",
-      branch: "Cabang Sudirman",
-      role: "Teller",
-      phone: "081234567896",
-      email: "ahmad.fauzi@bpr.co.id",
-      deviceId: null,
-      isActive: true,
-    },
-    {
-      nik: "2023008",
-      name: "Ratna Sari",
-      branch: "Cabang Gatot Subroto",
-      role: "CS",
-      phone: "081234567897",
-      email: "ratna.sari@bpr.co.id",
-      deviceId: "h8i9j0k1-l2m3-4567-ijkl-n89012345678",
-      isActive: true,
-    },
-    {
-      nik: "2023009",
-      name: "Eko Prasetyo",
-      branch: "Kas Pasar Minggu",
-      role: "Security",
-      phone: "081234567898",
-      email: "eko.prasetyo@bpr.co.id",
-      deviceId: "i9j0k1l2-m3n4-5678-jklm-o90123456789",
-      isActive: true,
-    },
-    {
-      nik: "2023010",
-      name: "Nina Marlina",
-      branch: "Kas Kemang",
-      role: "Admin",
-      phone: "081234567899",
-      email: "nina.marlina@bpr.co.id",
-      deviceId: "j0k1l2m3-n4o5-6789-klmn-p01234567890",
-      isActive: true,
-    },
-  ]);
+  const { toast, show: showToast } = useToast();
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [branchFilter, setBranchFilter] = useState("Semua");
   const [deviceFilter, setDeviceFilter] = useState<"all" | "registered" | "unregistered">("all");
   const [showBranchFilter, setShowBranchFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [formData, setFormData] = useState<Employee>({
+  const [isSaving, setIsSaving] = useState(false);
+
+  const emptyForm: EmployeeForm = {
     nik: "",
     name: "",
-    branch: "Kantor Pusat",
+    branchId: "",
     role: "",
     phone: "",
     email: "",
-    deviceId: null,
+    password: "",
     isActive: true,
-  });
+  };
+  const [formData, setFormData] = useState<EmployeeForm>(emptyForm);
+
+  const fetchEmployees = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+      const params: any = { get_all: true, include_relation: ["branch"] };
+      if (searchTerm) params.search = searchTerm;
+      const res = await api.get("/employees", { params });
+      const data = res.data?.data ?? res.data;
+      setEmployees(Array.isArray(data) ? data : (data?.data ?? []));
+    } catch (e: any) {
+      setError("Gagal memuat data karyawan.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm]);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
+  useEffect(() => {
+    api.get("/branch", { params: { get_all: true } }).then((res) => {
+      const data = res.data?.data ?? res.data;
+      setBranches(Array.isArray(data) ? data : (data?.data ?? []));
+    });
+  }, []);
+
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.nik.includes(searchTerm);
-    const matchesBranch = branchFilter === "Semua" || emp.branch === branchFilter;
+    const branchName = emp.branch?.name ?? "";
+    const matchesBranch = branchFilter === "Semua" || branchName === branchFilter;
     const matchesDevice =
       deviceFilter === "all" ||
       (deviceFilter === "registered" && emp.deviceId !== null) ||
       (deviceFilter === "unregistered" && emp.deviceId === null);
     return matchesSearch && matchesBranch && matchesDevice;
   });
-  const itemsPerPage = 5;
+
   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
   const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleAdd = () => {
-    setFormData({
-      nik: "",
-      name: "",
-      branch: "Kantor Pusat",
-      role: "",
-      phone: "",
-      email: "",
-      deviceId: null,
-      isActive: true,
-    });
+    setFormData({ ...emptyForm, branchId: branches[0]?.id ?? "" });
     setShowAddModal(true);
   };
+
   const handleEdit = (emp: Employee) => {
     setSelectedEmployee(emp);
-    setFormData({ ...emp });
+    setFormData({
+      nik: emp.nik,
+      name: emp.name,
+      branchId: emp.branchId,
+      role: emp.role,
+      phone: emp.phone ?? "",
+      email: emp.email,
+      password: "",
+      isActive: emp.isActive,
+    });
     setShowEditModal(true);
   };
+
   const handleDeleteClick = (emp: Employee) => {
     setSelectedEmployee(emp);
     setShowDeleteDialog(true);
   };
+
   const handleResetClick = (emp: Employee) => {
     setSelectedEmployee(emp);
     setShowResetDialog(true);
   };
-  const saveNewEmployee = () => {
-    setEmployees([
-      ...employees,
-      {
-        ...formData,
-        deviceId: null,
-      },
-    ]);
-    setShowAddModal(false);
+
+  const saveNewEmployee = async () => {
+    setIsSaving(true);
+    try {
+      await api.post("/employees", {
+        nik: formData.nik,
+        name: formData.name,
+        branchId: formData.branchId,
+        role: formData.role,
+        phone: formData.phone,
+        email: formData.email,
+        password: formData.password,
+        isActive: formData.isActive,
+      });
+      setShowAddModal(false);
+      fetchEmployees();
+    } catch (e: any) {
+      showToast(e.response?.data?.message ?? "Gagal menambah karyawan.", "error");
+    } finally {
+      setIsSaving(false);
+    }
   };
-  const updateEmployee = () => {
-    setEmployees(employees.map((emp) => (emp.nik === selectedEmployee?.nik ? { ...formData } : emp)));
-    setShowEditModal(false);
+
+  const updateEmployee = async () => {
+    if (!selectedEmployee) return;
+    setIsSaving(true);
+    try {
+      const payload: any = {
+        nik: formData.nik,
+        name: formData.name,
+        branchId: formData.branchId,
+        role: formData.role,
+        phone: formData.phone,
+        email: formData.email,
+        isActive: formData.isActive,
+      };
+      if (formData.password) payload.password = formData.password;
+      const formDataObj = new FormData();
+      Object.entries(payload).forEach(([k, v]) => formDataObj.append(k, String(v)));
+      await api.put(`/employees/${selectedEmployee.id}`, formDataObj, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setShowEditModal(false);
+      fetchEmployees();
+    } catch (e: any) {
+      showToast(e.response?.data?.message ?? "Gagal memperbarui karyawan.", "error");
+    } finally {
+      setIsSaving(false);
+    }
   };
-  const deleteEmployee = () => {
-    setEmployees(employees.filter((emp) => emp.nik !== selectedEmployee?.nik));
-    setShowDeleteDialog(false);
+
+  const deleteEmployee = async () => {
+    if (!selectedEmployee) return;
+    try {
+      await api.delete(`/employees/${selectedEmployee.id}`);
+      setShowDeleteDialog(false);
+      fetchEmployees();
+    } catch (e: any) {
+      showToast(e.response?.data?.message ?? "Gagal menghapus karyawan.", "error");
+    }
   };
-  const resetDevice = () => {
-    setEmployees(
-      employees.map((emp) =>
-        emp.nik === selectedEmployee?.nik
-          ? {
-              ...emp,
-              deviceId: null,
-            }
-          : emp,
-      ),
-    );
-    setShowResetDialog(false);
+
+  const resetDevice = async () => {
+    if (!selectedEmployee) return;
+    try {
+      const fd = new FormData();
+      fd.append("deviceId", "");
+      await api.put(`/employees/${selectedEmployee.id}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setShowResetDialog(false);
+      fetchEmployees();
+    } catch (e: any) {
+      showToast(e.response?.data?.message ?? "Gagal mereset device.", "error");
+    }
   };
+
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: 20,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      transition={{
-        duration: 0.5,
-      }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
       className="space-y-6"
     >
+      <Toast toast={toast} />
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-20">
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-
             <input
               type="text"
               placeholder="Cari nama atau NIK..."
               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </div>
           <div className="relative">
@@ -255,21 +262,19 @@ export function EmployeesPage() {
             </button>
             {showBranchFilter && (
               <div className="absolute top-full mt-2 left-0 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-30">
-                {["Semua", "Kantor Pusat", "Cabang Sudirman", "Cabang Gatot Subroto", "Kas Pasar Minggu", "Kas Kemang"].map(
-                  (branch) => (
-                    <button
-                      key={branch}
-                      onClick={() => {
-                        setBranchFilter(branch);
-                        setShowBranchFilter(false);
-                        setCurrentPage(1);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${branchFilter === branch ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}
-                    >
-                      {branch}
-                    </button>
-                  ),
-                )}
+                {["Semua", ...branches.map((b) => b.name)].map((branch) => (
+                  <button
+                    key={branch}
+                    onClick={() => {
+                      setBranchFilter(branch);
+                      setShowBranchFilter(false);
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${branchFilter === branch ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}
+                  >
+                    {branch}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -288,7 +293,7 @@ export function EmployeesPage() {
         {[
           {
             key: "all" as const,
-            label: "Semua Device",
+            label: "Semua Karyawan",
             value: employees.length,
             icon: Users,
             color: "text-blue-600",
@@ -297,7 +302,7 @@ export function EmployeesPage() {
           },
           {
             key: "registered" as const,
-            label: "Terdaftar",
+            label: "Device Terdaftar",
             value: employees.filter((e) => e.deviceId !== null).length,
             icon: Smartphone,
             color: "text-emerald-600",
@@ -306,7 +311,7 @@ export function EmployeesPage() {
           },
           {
             key: "unregistered" as const,
-            label: "Belum Ada",
+            label: "Belum Ada Device",
             value: employees.filter((e) => e.deviceId === null).length,
             icon: WifiOff,
             color: "text-red-600",
@@ -320,17 +325,13 @@ export function EmployeesPage() {
               setDeviceFilter(card.key);
               setCurrentPage(1);
             }}
-            className={`bg-white p-4 rounded-xl shadow-sm border transition-all text-left ${
-              deviceFilter === card.key
-                ? `${card.border} ring-1 ring-offset-0 ring-current ${card.color}`
-                : "border-gray-100 hover:border-gray-200"
-            }`}
+            className={`bg-white p-4 rounded-xl shadow-sm border transition-all text-left ${deviceFilter === card.key ? `${card.border} ring-1 ring-offset-0 ring-current ${card.color}` : "border-gray-100 hover:border-gray-200"}`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">{card.label}</p>
                 <p className={`text-2xl font-bold mt-1 ${deviceFilter === card.key ? card.color : "text-gray-900"}`}>
-                  {card.value}
+                  {isLoading ? "..." : card.value}
                 </p>
               </div>
               <div className={`w-10 h-10 rounded-lg ${card.bg} flex items-center justify-center`}>
@@ -340,6 +341,9 @@ export function EmployeesPage() {
           </button>
         ))}
       </div>
+
+      {/* Error */}
+      {error && <div className="bg-red-50 border border-red-100 text-red-600 rounded-xl p-4 text-sm">{error}</div>}
 
       {/* Data Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -357,9 +361,16 @@ export function EmployeesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedEmployees.length > 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
+                    <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+                    Memuat data...
+                  </td>
+                </tr>
+              ) : paginatedEmployees.length > 0 ? (
                 paginatedEmployees.map((employee) => (
-                  <tr key={employee.nik} className="hover:bg-gray-50/80 transition-colors group">
+                  <tr key={employee.id} className="hover:bg-gray-50/80 transition-colors group">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{employee.nik}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -374,8 +385,8 @@ export function EmployeesPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{employee.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{employee.branch}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{employee.role}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{employee.branch?.name ?? "-"}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{employee.role ?? "-"}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${employee.deviceId !== null ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"}`}
@@ -427,7 +438,7 @@ export function EmployeesPage() {
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
           <span>
-            Menampilkan {(currentPage - 1) * itemsPerPage + 1}-
+            Menampilkan {filteredEmployees.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}–
             {Math.min(currentPage * itemsPerPage, filteredEmployees.length)} dari {filteredEmployees.length} karyawan
           </span>
           <div className="flex gap-2">
@@ -438,12 +449,7 @@ export function EmployeesPage() {
             >
               Prev
             </button>
-            {Array.from(
-              {
-                length: totalPages,
-              },
-              (_, i) => i + 1,
-            ).map((page) => (
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
@@ -454,7 +460,7 @@ export function EmployeesPage() {
             ))}
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || totalPages === 0}
               className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
@@ -463,34 +469,19 @@ export function EmployeesPage() {
         </div>
       </div>
 
-      {/* MODALS */}
+      {/* Add / Edit Modal */}
       <AnimatePresence>
         {(showAddModal || showEditModal) && (
           <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{
-                scale: 0.95,
-                opacity: 0,
-              }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-              }}
-              exit={{
-                scale: 0.95,
-                opacity: 0,
-              }}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
             >
               <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -510,16 +501,11 @@ export function EmployeesPage() {
               <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">NIK</label>
+                    <label className="text-sm font-medium text-gray-700">NIK (16 digit)</label>
                     <input
                       type="text"
                       value={formData.nik}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          nik: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setFormData({ ...formData, nik: e.target.value })}
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                     />
                   </div>
@@ -528,12 +514,8 @@ export function EmployeesPage() {
                     <input
                       type="text"
                       value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          phone: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="08xxxxxxxxxx"
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                     />
                   </div>
@@ -543,12 +525,7 @@ export function EmployeesPage() {
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        name: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                   />
                 </div>
@@ -557,34 +534,34 @@ export function EmployeesPage() {
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        email: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="nama@bpr.co.id"
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                   />
                 </div>
-
+                {showAddModal && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Password</label>
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Kantor Cabang</label>
                   <select
-                    value={formData.branch}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        branch: e.target.value,
-                      })
-                    }
+                    value={formData.branchId}
+                    onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                   >
-                    <option>Kantor Pusat</option>
-                    <option>Cabang Sudirman</option>
-                    <option>Cabang Gatot Subroto</option>
-                    <option>Kas Pasar Minggu</option>
-                    <option>Kas Kemang</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -592,12 +569,7 @@ export function EmployeesPage() {
                   <input
                     type="text"
                     value={formData.role}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        role: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                   />
                 </div>
@@ -614,8 +586,10 @@ export function EmployeesPage() {
                 </button>
                 <button
                   onClick={showAddModal ? saveNewEmployee : updateEmployee}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm"
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm disabled:opacity-70 flex items-center gap-2"
                 >
+                  {isSaving && <Loader2 size={16} className="animate-spin" />}
                   {showAddModal ? "Simpan" : "Perbarui"}
                 </button>
               </div>
@@ -625,30 +599,15 @@ export function EmployeesPage() {
 
         {showDeleteDialog && (
           <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{
-                scale: 0.95,
-                opacity: 0,
-              }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-              }}
-              exit={{
-                scale: 0.95,
-                opacity: 0,
-              }}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
             >
               <div className="p-6 text-center">
@@ -657,8 +616,7 @@ export function EmployeesPage() {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">Hapus Karyawan?</h3>
                 <p className="text-gray-500 text-sm">
-                  Apakah Anda yakin ingin menghapus data karyawan <strong>{selectedEmployee?.name}</strong>? Tindakan ini
-                  tidak dapat dibatalkan.
+                  Yakin ingin menghapus <strong>{selectedEmployee?.name}</strong>? Tindakan ini tidak dapat dibatalkan.
                 </p>
               </div>
               <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-center gap-3">
@@ -681,30 +639,15 @@ export function EmployeesPage() {
 
         {showResetDialog && (
           <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{
-                scale: 0.95,
-                opacity: 0,
-              }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-              }}
-              exit={{
-                scale: 0.95,
-                opacity: 0,
-              }}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
             >
               <div className="p-6 text-center">
@@ -713,8 +656,7 @@ export function EmployeesPage() {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">Reset Device ID?</h3>
                 <p className="text-gray-500 text-sm">
-                  Ini akan menghapus device ID terdaftar untuk <strong>{selectedEmployee?.name}</strong>. Karyawan harus
-                  mendaftarkan ulang device mereka saat login berikutnya.
+                  Ini akan menghapus device ID terdaftar untuk <strong>{selectedEmployee?.name}</strong>.
                 </p>
               </div>
               <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-center gap-3">

@@ -69,6 +69,7 @@ export function EmployeesPage() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const emptyForm: EmployeeForm = {
     nik: "",
@@ -132,6 +133,7 @@ export function EmployeesPage() {
 
   const handleAdd = () => {
     setFormData({ ...emptyForm, branchId: branches[0]?.id ?? "" });
+    setFormErrors({});
     setShowAddModal(true);
   };
 
@@ -147,6 +149,7 @@ export function EmployeesPage() {
       password: "",
       isActive: emp.isActive,
     });
+    setFormErrors({});
     setShowEditModal(true);
   };
 
@@ -160,8 +163,22 @@ export function EmployeesPage() {
     setShowResetDialog(true);
   };
 
+  const parseValidationErrors = (e: any): boolean => {
+    const validation = e.response?.data?.errors?.validation;
+    if (validation && typeof validation === "object") {
+      const mapped: Record<string, string> = {};
+      for (const [field, msgs] of Object.entries(validation)) {
+        mapped[field] = Array.isArray(msgs) ? (msgs as string[])[0] : String(msgs);
+      }
+      setFormErrors(mapped);
+      return true;
+    }
+    return false;
+  };
+
   const saveNewEmployee = async () => {
     setIsSaving(true);
+    setFormErrors({});
     try {
       await api.post("/employees", {
         nik: formData.nik,
@@ -176,7 +193,9 @@ export function EmployeesPage() {
       setShowAddModal(false);
       fetchEmployees();
     } catch (e: any) {
-      showToast(e.response?.data?.message ?? "Gagal menambah karyawan.", "error");
+      if (!parseValidationErrors(e)) {
+        showToast(e.response?.data?.message ?? "Gagal menambah karyawan.", "error");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -204,7 +223,9 @@ export function EmployeesPage() {
       setShowEditModal(false);
       fetchEmployees();
     } catch (e: any) {
-      showToast(e.response?.data?.message ?? "Gagal memperbarui karyawan.", "error");
+      if (!parseValidationErrors(e)) {
+        showToast(e.response?.data?.message ?? "Gagal memperbarui karyawan.", "error");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -509,44 +530,48 @@ export function EmployeesPage() {
               </div>
               <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">NIK (16 digit)</label>
                     <input
                       type="text"
                       value={formData.nik}
                       onChange={(e) => setFormData({ ...formData, nik: e.target.value })}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.nik ? "border-red-400" : "border-gray-200"}`}
                     />
+                    {formErrors.nik && <p className="text-xs text-red-500">{formErrors.nik}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">No. HP</label>
                     <input
                       type="text"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="08xxxxxxxxxx"
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.phone ? "border-red-400" : "border-gray-200"}`}
                     />
+                    {formErrors.phone && <p className="text-xs text-red-500">{formErrors.phone}</p>}
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Nama Lengkap</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.name ? "border-red-400" : "border-gray-200"}`}
                   />
+                  {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="nama@bpr.co.id"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.email ? "border-red-400" : "border-gray-200"}`}
                   />
+                  {formErrors.email && <p className="text-xs text-red-500">{formErrors.email}</p>}
                 </div>
                 {showAddModal && (
                   <div className="space-y-2">
@@ -555,8 +580,9 @@ export function EmployeesPage() {
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.password ? "border-red-400" : "border-gray-200"}`}
                     />
+                    {formErrors.password && <p className="text-xs text-red-500">{formErrors.password}</p>}
                   </div>
                 )}
                 <div className="space-y-2">

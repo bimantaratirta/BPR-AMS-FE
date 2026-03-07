@@ -4,6 +4,7 @@ import { Search, Plus, Edit2, Trash2, X, AlertTriangle, Shield, Eye, EyeOff, Loa
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 import { useDebounce } from "../hooks/useDebounce";
+import { Pagination } from "../components/Pagination";
 
 type AdminRole = "SUPER_ADMIN" | "ADMIN" | "VIEWER";
 type AdminStatus = "ACTIVE" | "INACTIVE";
@@ -51,15 +52,30 @@ export function AdminsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 10;
+
   const emptyForm: AdminForm = { name: "", email: "", password: "", password_confirmation: "", role: "ADMIN", status: "ACTIVE" };
   const [formData, setFormData] = useState<AdminForm>(emptyForm);
 
   const fetchAdmins = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get("/admins", { params: { get_all: true } });
+      const params: any = {
+        "pagination[page]": currentPage,
+        "pagination[limit]": itemsPerPage,
+      };
+      if (debouncedSearch) params.search = debouncedSearch;
+      const res = await api.get("/admins", { params });
       const data = res.data?.data ?? res.data;
       setAdmins(Array.isArray(data) ? data : (data?.data ?? []));
+      const pagination = res.data?.pagination;
+      if (pagination) {
+        setTotalPages(pagination.totalPages ?? 1);
+        setTotalItems(pagination.totalItems ?? 0);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -67,13 +83,7 @@ export function AdminsPage() {
 
   useEffect(() => {
     fetchAdmins();
-  }, []);
-
-  const filteredAdmins = admins.filter(
-    (a) =>
-      a.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      a.email.toLowerCase().includes(debouncedSearch.toLowerCase()),
-  );
+  }, [currentPage, debouncedSearch]);
 
   const parseValidationErrors = (e: any): boolean => {
     const errors = e.response?.data?.errors;
@@ -197,7 +207,7 @@ export function AdminsPage() {
             type="text"
             placeholder="Cari admin..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
           />
         </div>
@@ -218,7 +228,7 @@ export function AdminsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredAdmins.map((admin) => (
+          {admins.map((admin) => (
             <div key={admin.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
@@ -273,9 +283,22 @@ export function AdminsPage() {
               </div>
             </div>
           ))}
-          {filteredAdmins.length === 0 && (
+          {admins.length === 0 && (
             <div className="col-span-full py-12 text-center text-gray-500">Tidak ada admin ditemukan.</div>
           )}
+        </div>
+      )}
+
+      {!isLoading && totalItems > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="admin"
+          />
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 import { useDebounce } from "../hooks/useDebounce";
+import { Pagination } from "../components/Pagination";
 
 type AttendanceStatus = "HADIR" | "TERLAMBAT" | "ALPHA" | "CUTI" | "SAKIT" | "SETENGAH_HARI";
 
@@ -82,6 +83,10 @@ export function AttendancePage() {
   const [selectedBranch, setSelectedBranch] = useState("Semua Cabang");
   const [dateFilter, setDateFilter] = useState("");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 20;
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; name: string; date: string } | null>(null);
@@ -97,37 +102,41 @@ export function AttendancePage() {
     const fetchAttendances = async () => {
       setIsLoading(true);
       try {
-        const params: any = { get_all: true };
+        const params: any = {
+          "pagination[page]": currentPage,
+          "pagination[limit]": itemsPerPage,
+        };
         if (dateFilter) params["filter[date]"] = dateFilter;
+        if (debouncedSearch) params.search = debouncedSearch;
+        if (selectedBranch !== "Semua Cabang") {
+          const branchObj = branches.find((b) => b.name === selectedBranch);
+          if (branchObj) params["filter[branchId]"] = branchObj.id;
+        }
         const res = await api.get("/attendances", { params });
         const data = res.data?.data ?? res.data;
         setRecords(Array.isArray(data) ? data : (data?.data ?? []));
+        const pagination = res.data?.pagination;
+        if (pagination) {
+          setTotalPages(pagination.totalPages ?? 1);
+          setTotalItems(pagination.totalItems ?? 0);
+        }
       } finally {
         setIsLoading(false);
       }
     };
     fetchAttendances();
-  }, [dateFilter]);
-
-  const filteredData = records.filter((record) => {
-    const name = record.employee?.name ?? "";
-    const nik = record.employee?.nik ?? "";
-    const matchSearch = name.toLowerCase().includes(debouncedSearch.toLowerCase()) || nik.includes(debouncedSearch);
-    const branchName = record.employee?.branch?.name ?? "";
-    const matchBranch = selectedBranch === "Semua Cabang" || branchName === selectedBranch;
-    return matchSearch && matchBranch;
-  });
+  }, [dateFilter, currentPage, debouncedSearch, selectedBranch, branches]);
 
   const stats = {
-    hadir: filteredData.filter((r) => r.status === "HADIR").length,
-    terlambat: filteredData.filter((r) => r.status === "TERLAMBAT").length,
-    izin: filteredData.filter((r) => ["CUTI", "SAKIT", "SETENGAH_HARI"].includes(r.status)).length,
-    alpha: filteredData.filter((r) => r.status === "ALPHA").length,
+    hadir: records.filter((r) => r.status === "HADIR").length,
+    terlambat: records.filter((r) => r.status === "TERLAMBAT").length,
+    izin: records.filter((r) => ["CUTI", "SAKIT", "SETENGAH_HARI"].includes(r.status)).length,
+    alpha: records.filter((r) => r.status === "ALPHA").length,
   };
 
   const handleExportExcel = () => {
     const header = ["Tanggal", "Nama", "NIK", "Cabang", "Masuk", "Keluar", "Status", "Poin"];
-    const rows = filteredData.map((r) => [
+    const rows = records.map((r) => [
       formatDate(r.date),
       r.employee?.name ?? "-",
       r.employee?.nik ?? "-",
@@ -194,7 +203,7 @@ export function AttendancePage() {
             <input
               type="date"
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1); }}
               className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
@@ -204,7 +213,7 @@ export function AttendancePage() {
               type="text"
               placeholder="Cari karyawan..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
@@ -224,6 +233,7 @@ export function AttendancePage() {
                     onClick={() => {
                       setSelectedBranch(branch);
                       setShowFilterDropdown(false);
+                      setCurrentPage(1);
                     }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedBranch === branch ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}
                   >
@@ -267,14 +277,14 @@ export function AttendancePage() {
                     Memuat data...
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : records.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                     Tidak ada data absensi ditemukan.
                   </td>
                 </tr>
               ) : (
-                filteredData.map((record) => (
+                records.map((record) => (
                   <tr key={record.id} className="hover:bg-gray-50/80 transition-colors border-b border-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(record.date)}</td>
                     <td className="px-6 py-4">
@@ -330,6 +340,14 @@ export function AttendancePage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          itemLabel="data"
+        />
       </div>
 
       {/* Photo Modal */}

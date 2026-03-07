@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 import { useDebounce } from "../hooks/useDebounce";
+import { Pagination } from "../components/Pagination";
 
 type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 type LeaveStatusDisplay = "Menunggu" | "Disetujui" | "Ditolak";
@@ -87,35 +88,54 @@ export function LeavePage() {
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
   const [isActing, setIsActing] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [counts, setCounts] = useState({ PENDING: 0, APPROVED: 0, REJECTED: 0 });
+  const itemsPerPage = 10;
 
   const fetchRequests = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get("/leave-requests", { params: { get_all: true } });
+      const params: any = {
+        "pagination[page]": currentPage,
+        "pagination[limit]": itemsPerPage,
+        "filter[status]": activeTab,
+      };
+      if (debouncedSearch) params.search = debouncedSearch;
+      const res = await api.get("/leave-requests", { params });
       const data = res.data?.data ?? res.data;
       setRequests(Array.isArray(data) ? data : (data?.data ?? []));
+      const pagination = res.data?.pagination;
+      if (pagination) {
+        setTotalPages(pagination.totalPages ?? 1);
+        setTotalItems(pagination.totalItems ?? 0);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchCounts = async () => {
+    try {
+      const res = await api.get("/leave-requests", { params: { get_all: true } });
+      const data = res.data?.data ?? res.data;
+      const all = Array.isArray(data) ? data : (data?.data ?? []);
+      setCounts({
+        PENDING: all.filter((r: any) => r.status === "PENDING").length,
+        APPROVED: all.filter((r: any) => r.status === "APPROVED").length,
+        REJECTED: all.filter((r: any) => r.status === "REJECTED").length,
+      });
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
     fetchRequests();
+  }, [currentPage, activeTab, debouncedSearch]);
+
+  useEffect(() => {
+    fetchCounts();
   }, []);
-
-  const filteredRequests = requests.filter((r) => {
-    const matchStatus = r.status === activeTab;
-    const name = r.employee?.name ?? "";
-    const nik = r.employee?.nik ?? "";
-    const matchSearch = name.toLowerCase().includes(debouncedSearch.toLowerCase()) || nik.includes(debouncedSearch);
-    return matchStatus && matchSearch;
-  });
-
-  const counts = {
-    PENDING: requests.filter((r) => r.status === "PENDING").length,
-    APPROVED: requests.filter((r) => r.status === "APPROVED").length,
-    REJECTED: requests.filter((r) => r.status === "REJECTED").length,
-  };
 
   const confirmApprove = async () => {
     if (!selectedRequest) return;
@@ -125,6 +145,7 @@ export function LeavePage() {
       setShowApproveDialog(false);
       setSelectedRequest(null);
       fetchRequests();
+      fetchCounts();
     } catch (e: any) {
       showToast(e.response?.data?.message ?? "Gagal menyetujui permohonan.", "error");
     } finally {
@@ -145,6 +166,7 @@ export function LeavePage() {
       setSelectedRequest(null);
       setRejectReason("");
       fetchRequests();
+      fetchCounts();
     } catch (e: any) {
       showToast(e.response?.data?.message ?? "Gagal menolak permohonan.", "error");
     } finally {
@@ -166,7 +188,7 @@ export function LeavePage() {
         {tabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => { setActiveTab(tab.key); setCurrentPage(1); }}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === tab.key ? "bg-blue-600 text-white shadow-sm" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}
           >
             {tab.label}
@@ -187,7 +209,7 @@ export function LeavePage() {
             type="text"
             placeholder="Cari nama atau NIK..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
           />
         </div>
@@ -201,7 +223,7 @@ export function LeavePage() {
           </div>
         ) : (
           <AnimatePresence mode="wait">
-            {filteredRequests.map((request) => (
+            {requests.map((request) => (
               <motion.div
                 key={request.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -282,7 +304,7 @@ export function LeavePage() {
                 )}
               </motion.div>
             ))}
-            {filteredRequests.length === 0 && !isLoading && (
+            {requests.length === 0 && !isLoading && (
               <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
                 <FileText size={40} className="mx-auto text-gray-300 mb-3" />
                 <p className="text-sm text-gray-400">Tidak ada pengajuan ditemukan</p>
@@ -291,6 +313,20 @@ export function LeavePage() {
           </AnimatePresence>
         )}
       </div>
+
+      {/* Pagination */}
+      {!isLoading && totalItems > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="pengajuan"
+          />
+        </div>
+      )}
 
       {/* Approve Dialog */}
       <AnimatePresence>

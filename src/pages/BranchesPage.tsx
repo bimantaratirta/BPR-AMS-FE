@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
+import { Pagination } from "../components/Pagination";
 
 // Fix default marker icon (Leaflet + bundler issue)
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -84,15 +85,28 @@ export function BranchesPage() {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [focusedBranchId, setFocusedBranchId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 10;
   const emptyForm: BranchForm = { name: "", address: "", latitude: "", longitude: "", radius: "50" };
   const [formData, setFormData] = useState<BranchForm>(emptyForm);
 
   const fetchBranches = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get("/branch", { params: { get_all: true } });
+      const params: any = {
+        "pagination[page]": currentPage,
+        "pagination[limit]": itemsPerPage,
+      };
+      const res = await api.get("/branch", { params });
       const data = res.data?.data ?? res.data;
       setBranches(Array.isArray(data) ? data : (data?.data ?? []));
+      const pagination = res.data?.pagination;
+      if (pagination) {
+        setTotalPages(pagination.totalPages ?? 1);
+        setTotalItems(pagination.totalItems ?? 0);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +114,7 @@ export function BranchesPage() {
 
   useEffect(() => {
     fetchBranches();
-  }, []);
+  }, [currentPage]);
 
   const handleAdd = () => {
     setFormData(emptyForm);
@@ -320,6 +334,19 @@ export function BranchesPage() {
           {branches.length === 0 && (
             <div className="col-span-full py-12 text-center text-gray-400">Tidak ada data cabang.</div>
           )}
+        </div>
+      )}
+
+      {!isLoading && totalItems > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="cabang"
+          />
         </div>
       )}
 

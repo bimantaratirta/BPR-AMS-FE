@@ -3,6 +3,7 @@ import { Search, Filter, Star, Clock, CheckCircle2, XCircle, ChevronDown, Loader
 import { motion } from "framer-motion";
 import api from "../lib/api";
 import { useDebounce } from "../hooks/useDebounce";
+import { Pagination } from "../components/Pagination";
 
 interface AggregatedEmployee {
   employeeId: string;
@@ -26,6 +27,8 @@ export function PointsPage() {
   const [showBranchFilter, setShowBranchFilter] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     api.get("/branch", { params: { get_all: true } }).then((res) => {
@@ -77,6 +80,10 @@ export function PointsPage() {
     const matchBranch = selectedBranch === "Semua Cabang" || emp.branch === selectedBranch;
     return matchSearch && matchBranch;
   });
+
+  const totalFilteredItems = filteredData.length;
+  const totalPages = Math.ceil(totalFilteredItems / itemsPerPage);
+  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const totalPoin = filteredData.reduce((sum, e) => sum + e.totalPoin, 0);
   const avgPoin = filteredData.length > 0 ? (totalPoin / filteredData.length).toFixed(1) : "0";
@@ -177,7 +184,7 @@ export function PointsPage() {
               type="text"
               placeholder="Cari nama atau NIK..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
           </div>
@@ -214,6 +221,7 @@ export function PointsPage() {
                     onClick={() => {
                       setSelectedBranch(branch);
                       setShowBranchFilter(false);
+                      setCurrentPage(1);
                     }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedBranch === branch ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}
                   >
@@ -256,14 +264,14 @@ export function PointsPage() {
                     Memuat data...
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : paginatedData.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     Tidak ada data ditemukan.
                   </td>
                 </tr>
               ) : (
-                filteredData.map((emp) => (
+                paginatedData.map((emp) => (
                   <tr key={emp.employeeId} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -295,6 +303,14 @@ export function PointsPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalFilteredItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          itemLabel="karyawan"
+        />
       </div>
     </motion.div>
   );

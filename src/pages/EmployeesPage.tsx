@@ -17,6 +17,7 @@ import {
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 import { useDebounce } from "../hooks/useDebounce";
+import { Pagination } from "../components/Pagination";
 
 interface Employee {
   id: string;
@@ -61,6 +62,8 @@ export function EmployeesPage() {
   const [deviceFilter, setDeviceFilter] = useState<"all" | "registered" | "unregistered">("all");
   const [showBranchFilter, setShowBranchFilter] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -87,17 +90,32 @@ export function EmployeesPage() {
     try {
       setIsLoading(true);
       setError("");
-      const params: any = { get_all: true, include_relation: ["branch"] };
+      const params: any = {
+        "pagination[page]": currentPage,
+        "pagination[limit]": itemsPerPage,
+        include_relation: ["branch"],
+      };
       if (debouncedSearch) params.search = debouncedSearch;
+      if (branchFilter !== "Semua") {
+        const branchObj = branches.find((b) => b.name === branchFilter);
+        if (branchObj) params["filter[branchId]"] = branchObj.id;
+      }
+      if (deviceFilter === "registered") params["filter[deviceId_not]"] = "null";
+      else if (deviceFilter === "unregistered") params["filter[deviceId]"] = "null";
       const res = await api.get("/employees", { params });
       const data = res.data?.data ?? res.data;
       setEmployees(Array.isArray(data) ? data : (data?.data ?? []));
+      const pagination = res.data?.pagination;
+      if (pagination) {
+        setTotalPages(pagination.totalPages ?? 1);
+        setTotalItems(pagination.totalItems ?? 0);
+      }
     } catch (e: any) {
       setError("Gagal memuat data karyawan.");
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, currentPage, branchFilter, deviceFilter, branches]);
 
   useEffect(() => {
     fetchEmployees();
@@ -110,26 +128,7 @@ export function EmployeesPage() {
     });
   }, []);
 
-  const filteredEmployees = employees.filter((emp) => {
-    const search = debouncedSearch.toLowerCase();
-    const matchesSearch =
-      !search ||
-      emp.name.toLowerCase().includes(search) ||
-      emp.nik.includes(debouncedSearch) ||
-      emp.email.toLowerCase().includes(search) ||
-      (emp.branch?.name ?? "").toLowerCase().includes(search) ||
-      (emp.role ?? "").toLowerCase().includes(search);
-    const branchName = emp.branch?.name ?? "";
-    const matchesBranch = branchFilter === "Semua" || branchName === branchFilter;
-    const matchesDevice =
-      deviceFilter === "all" ||
-      (deviceFilter === "registered" && emp.deviceId !== null) ||
-      (deviceFilter === "unregistered" && emp.deviceId === null);
-    return matchesSearch && matchesBranch && matchesDevice;
-  });
-
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
-  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Data is now server-side paginated and filtered
 
   const handleAdd = () => {
     setFormData({ ...emptyForm, branchId: branches[0]?.id ?? "" });
@@ -326,7 +325,7 @@ export function EmployeesPage() {
           {
             key: "all" as const,
             label: "Semua Karyawan",
-            value: employees.length,
+            value: totalItems,
             icon: Users,
             color: "text-blue-600",
             bg: "bg-blue-50",
@@ -335,7 +334,7 @@ export function EmployeesPage() {
           {
             key: "registered" as const,
             label: "Device Terdaftar",
-            value: employees.filter((e) => e.deviceId !== null).length,
+            value: "-",
             icon: Smartphone,
             color: "text-emerald-600",
             bg: "bg-emerald-50",
@@ -344,7 +343,7 @@ export function EmployeesPage() {
           {
             key: "unregistered" as const,
             label: "Belum Ada Device",
-            value: employees.filter((e) => e.deviceId === null).length,
+            value: "-",
             icon: WifiOff,
             color: "text-red-600",
             bg: "bg-red-50",
@@ -400,8 +399,8 @@ export function EmployeesPage() {
                     Memuat data...
                   </td>
                 </tr>
-              ) : paginatedEmployees.length > 0 ? (
-                paginatedEmployees.map((employee) => (
+              ) : employees.length > 0 ? (
+                employees.map((employee) => (
                   <tr key={employee.id} className="hover:bg-gray-50/80 transition-colors group">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{employee.nik}</td>
                     <td className="px-6 py-4">
@@ -467,38 +466,14 @@ export function EmployeesPage() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
-          <span>
-            Menampilkan {filteredEmployees.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}–
-            {Math.min(currentPage * itemsPerPage, filteredEmployees.length)} dari {filteredEmployees.length} karyawan
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Prev
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 rounded border ${currentPage === page ? "bg-blue-50 text-blue-600 border-blue-100 font-medium" : "border-gray-200 hover:bg-gray-50"}`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          itemLabel="karyawan"
+        />
       </div>
 
       {/* Add / Edit Modal */}

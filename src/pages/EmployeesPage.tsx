@@ -245,11 +245,13 @@ export function EmployeesPage() {
   const resetDevice = async () => {
     if (!selectedEmployee) return;
     try {
-      const fd = new FormData();
-      fd.append("deviceId", "");
-      await api.put(`/employees/${selectedEmployee.id}`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.put(
+        `/employees/${selectedEmployee.id}`,
+        { deviceId: null },
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
       setShowResetDialog(false);
       fetchEmployees();
     } catch (e: any) {

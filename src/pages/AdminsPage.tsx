@@ -20,6 +20,7 @@ interface AdminForm {
   name: string;
   email: string;
   password: string;
+  password_confirmation: string;
   role: AdminRole;
   status: AdminStatus;
 }
@@ -48,8 +49,9 @@ export function AdminsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const emptyForm: AdminForm = { name: "", email: "", password: "", role: "ADMIN", status: "ACTIVE" };
+  const emptyForm: AdminForm = { name: "", email: "", password: "", password_confirmation: "", role: "ADMIN", status: "ACTIVE" };
   const [formData, setFormData] = useState<AdminForm>(emptyForm);
 
   const fetchAdmins = async () => {
@@ -73,15 +75,37 @@ export function AdminsPage() {
       a.email.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
+  const parseValidationErrors = (e: any): boolean => {
+    const errors = e.response?.data?.errors;
+    const validation = errors?.validation;
+    if (validation && typeof validation === "object") {
+      const mapped: Record<string, string> = {};
+      for (const [field, msgs] of Object.entries(validation)) {
+        mapped[field] = Array.isArray(msgs) ? (msgs as string[])[0] : String(msgs);
+      }
+      setFormErrors(mapped);
+      return true;
+    }
+    // Handle duplicate email (409 or message contains "sudah" / "already")
+    const msg: string = e.response?.data?.message ?? "";
+    if (e.response?.status === 409 || /sudah|already|duplicate|exist/i.test(msg)) {
+      setFormErrors({ email: msg || "Email sudah terdaftar." });
+      return true;
+    }
+    return false;
+  };
+
   const handleAdd = () => {
     setFormData(emptyForm);
+    setFormErrors({});
     setShowPassword(false);
     setShowAddModal(true);
   };
 
   const handleEdit = (admin: Admin) => {
     setSelectedAdmin(admin);
-    setFormData({ name: admin.name, email: admin.email, password: "", role: admin.role, status: admin.status });
+    setFormData({ name: admin.name, email: admin.email, password: "", password_confirmation: "", role: admin.role, status: admin.status });
+    setFormErrors({});
     setShowPassword(false);
     setShowEditModal(true);
   };
@@ -93,19 +117,22 @@ export function AdminsPage() {
 
   const saveNewAdmin = async () => {
     setIsSaving(true);
+    setFormErrors({});
     try {
-      // Use auth register endpoint for new admin
       await api.post("/auth/admin/register", {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        password_confirmation: formData.password_confirmation,
         role: formData.role,
         status: formData.status,
       });
       setShowAddModal(false);
       fetchAdmins();
     } catch (e: any) {
-      showToast(e.response?.data?.message ?? "Gagal menambah admin.", "error");
+      if (!parseValidationErrors(e)) {
+        showToast(e.response?.data?.message ?? "Gagal menambah admin.", "error");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -114,14 +141,20 @@ export function AdminsPage() {
   const updateAdmin = async () => {
     if (!selectedAdmin) return;
     setIsSaving(true);
+    setFormErrors({});
     try {
       const payload: any = { name: formData.name, email: formData.email, role: formData.role, status: formData.status };
-      if (formData.password) payload.password = formData.password;
+      if (formData.password) {
+        payload.password = formData.password;
+        payload.password_confirmation = formData.password_confirmation;
+      }
       await api.put(`/admins/${selectedAdmin.id}`, payload);
       setShowEditModal(false);
       fetchAdmins();
     } catch (e: any) {
-      showToast(e.response?.data?.message ?? "Gagal memperbarui admin.", "error");
+      if (!parseValidationErrors(e)) {
+        showToast(e.response?.data?.message ?? "Gagal memperbarui admin.", "error");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -273,27 +306,29 @@ export function AdminsPage() {
                   <X size={20} />
                 </button>
               </div>
-              <div className="p-6 space-y-4">
-                <div className="space-y-2">
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Nama Lengkap</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.name ? "border-red-400" : "border-gray-200"}`}
                   />
+                  {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="nama@bpr.co.id"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.email ? "border-red-400" : "border-gray-200"}`}
                   />
+                  {formErrors.email && <p className="text-xs text-red-500">{formErrors.email}</p>}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">
                     {showEditModal ? "Password Baru (kosongkan jika tidak diubah)" : "Kata Sandi"}
                   </label>
@@ -303,7 +338,7 @@ export function AdminsPage() {
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder={showEditModal ? "Kosongkan jika tidak diubah" : "Masukkan password"}
-                      className="w-full px-3 py-2 pr-10 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      className={`w-full px-3 py-2 pr-10 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.password ? "border-red-400" : "border-gray-200"}`}
                     />
                     <button
                       type="button"
@@ -313,30 +348,48 @@ export function AdminsPage() {
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+                  {formErrors.password && <p className="text-xs text-red-500">{formErrors.password}</p>}
                 </div>
+                {(showAddModal || formData.password) && (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Konfirmasi Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={formData.password_confirmation}
+                        onChange={(e) => setFormData({ ...formData, password_confirmation: e.target.value })}
+                        placeholder="Ulangi password"
+                        className={`w-full px-3 py-2 pr-10 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.password_confirmation ? "border-red-400" : "border-gray-200"}`}
+                      />
+                    </div>
+                    {formErrors.password_confirmation && <p className="text-xs text-red-500">{formErrors.password_confirmation}</p>}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Role</label>
                     <select
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value as AdminRole })}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.role ? "border-red-400" : "border-gray-200"}`}
                     >
                       <option value="SUPER_ADMIN">Super Admin</option>
                       <option value="ADMIN">Admin</option>
                       <option value="VIEWER">Viewer</option>
                     </select>
+                    {formErrors.role && <p className="text-xs text-red-500">{formErrors.role}</p>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Status</label>
                     <select
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as AdminStatus })}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.status ? "border-red-400" : "border-gray-200"}`}
                     >
                       <option value="ACTIVE">Aktif</option>
                       <option value="INACTIVE">Nonaktif</option>
                     </select>
+                    {formErrors.status && <p className="text-xs text-red-500">{formErrors.status}</p>}
                   </div>
                 </div>
               </div>

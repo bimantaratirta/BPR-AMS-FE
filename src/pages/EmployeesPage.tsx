@@ -110,8 +110,14 @@ export function EmployeesPage() {
   }, []);
 
   const filteredEmployees = employees.filter((emp) => {
+    const search = debouncedSearch.toLowerCase();
     const matchesSearch =
-      emp.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || emp.nik.includes(debouncedSearch);
+      !search ||
+      emp.name.toLowerCase().includes(search) ||
+      emp.nik.includes(debouncedSearch) ||
+      emp.email.toLowerCase().includes(search) ||
+      (emp.branch?.name ?? "").toLowerCase().includes(search) ||
+      (emp.role ?? "").toLowerCase().includes(search);
     const branchName = emp.branch?.name ?? "";
     const matchesBranch = branchFilter === "Semua" || branchName === branchFilter;
     const matchesDevice =

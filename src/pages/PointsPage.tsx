@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Filter, Star, Clock, CheckCircle2, XCircle, ChevronDown, Loader2, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import api from "../lib/api";
@@ -17,9 +17,17 @@ interface AggregatedEmployee {
   totalPoin: number;
 }
 
+interface SummaryMetrics {
+  totalPoin: number;
+  avgPoin: number;
+  totalHadir: number;
+  totalTerlambat: number;
+}
+
 export function PointsPage() {
   const [aggregated, setAggregated] = useState<AggregatedEmployee[]>([]);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const branchesRef = useRef<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -28,39 +36,54 @@ export function PointsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [metrics, setMetrics] = useState<SummaryMetrics>({ totalPoin: 0, avgPoin: 0, totalHadir: 0, totalTerlambat: 0 });
   const itemsPerPage = 20;
 
+  const fetchSummary = useCallback(
+    async (page = 1) => {
+      setIsLoading(true);
+      try {
+        const params: Record<string, string | number> = { page, limit: itemsPerPage };
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+        if (debouncedSearch) params.search = debouncedSearch;
+        const branchObj = branchesRef.current.find((b) => b.name === selectedBranch);
+        if (branchObj) params.branchId = branchObj.id;
+
+        const res = await api.get("/point-records/summary", { params });
+        const data = res.data?.data ?? res.data;
+        setAggregated(Array.isArray(data) ? data : []);
+        if (res.data?.branches) {
+          branchesRef.current = res.data.branches;
+          setBranches(res.data.branches);
+        }
+        if (res.data?.metrics) setMetrics(res.data.metrics);
+        if (res.data?.pagination) {
+          setTotalPages(res.data.pagination.totalPages ?? 1);
+          setTotalItems(res.data.pagination.totalItems ?? 0);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [startDate, endDate, debouncedSearch, selectedBranch],
+  );
+
   useEffect(() => {
-    api.get("/branch", { params: { get_all: true } }).then((res) => {
-      const data = res.data?.data ?? res.data;
-      setBranches(Array.isArray(data) ? data : (data?.data ?? []));
-    });
-  }, []);
-
-  const fetchSummary = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const params: Record<string, string> = {};
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-      const branchObj = branches.find((b) => b.name === selectedBranch);
-      if (branchObj) params.branchId = branchObj.id;
-
-      const res = await api.get("/point-records/summary", { params });
-      const data = res.data?.data ?? res.data;
-      setAggregated(Array.isArray(data) ? data : []);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [startDate, endDate, selectedBranch, branches]);
-
-  useEffect(() => {
-    fetchSummary();
+    setCurrentPage(1);
+    fetchSummary(1);
   }, [fetchSummary]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchSummary(page);
+  };
 
   const exportCSV = () => {
     const header = "Nama,NIK,Cabang,Tepat Waktu,Setengah Poin,Terlambat,Alpha,Total Poin\n";
-    const rows = filteredData
+    const rows = aggregated
       .map(
         (e) =>
           `"${e.name}","${e.nik}","${e.branch}",${e.hadir},${e.terlambat05},${e.terlambat0},${e.alpha},${e.totalPoin.toFixed(1)}`,
@@ -74,21 +97,6 @@ export function PointsPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const filteredData = aggregated.filter((emp) => {
-    const matchSearch = emp.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || emp.nik.includes(debouncedSearch);
-    const matchBranch = selectedBranch === "Semua Cabang" || emp.branch === selectedBranch;
-    return matchSearch && matchBranch;
-  });
-
-  const totalFilteredItems = filteredData.length;
-  const totalPages = Math.ceil(totalFilteredItems / itemsPerPage);
-  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const totalPoin = filteredData.reduce((sum, e) => sum + e.totalPoin, 0);
-  const avgPoin = filteredData.length > 0 ? (totalPoin / filteredData.length).toFixed(1) : "0";
-  const totalHadir = filteredData.reduce((sum, e) => sum + e.hadir, 0);
-  const totalTerlambat = filteredData.reduce((sum, e) => sum + e.terlambat05 + e.terlambat0, 0);
 
   return (
     <motion.div
@@ -157,13 +165,23 @@ export function PointsPage() {
         {[
           {
             label: "Total Poin",
-            value: isLoading ? "..." : totalPoin.toFixed(1),
+            value: isLoading ? "..." : metrics.totalPoin.toFixed(1),
             color: "text-amber-600",
             bg: "bg-amber-50",
           },
-          { label: "Rata-rata", value: isLoading ? "..." : avgPoin, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Tepat Waktu", value: isLoading ? "..." : totalHadir, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Terlambat", value: isLoading ? "..." : totalTerlambat, color: "text-red-600", bg: "bg-red-50" },
+          {
+            label: "Rata-rata",
+            value: isLoading ? "..." : metrics.avgPoin.toFixed(1),
+            color: "text-blue-600",
+            bg: "bg-blue-50",
+          },
+          {
+            label: "Tepat Waktu",
+            value: isLoading ? "..." : metrics.totalHadir,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+          },
+          { label: "Terlambat", value: isLoading ? "..." : metrics.totalTerlambat, color: "text-red-600", bg: "bg-red-50" },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -184,7 +202,10 @@ export function PointsPage() {
               type="text"
               placeholder="Cari nama atau NIK..."
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
           </div>
@@ -264,14 +285,14 @@ export function PointsPage() {
                     Memuat data...
                   </td>
                 </tr>
-              ) : paginatedData.length === 0 ? (
+              ) : aggregated.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     Tidak ada data ditemukan.
                   </td>
                 </tr>
               ) : (
-                paginatedData.map((emp) => (
+                aggregated.map((emp) => (
                   <tr key={emp.employeeId} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -292,7 +313,7 @@ export function PointsPage() {
                     <td className="px-6 py-4 text-center text-sm text-red-600 font-medium">{emp.terlambat0}</td>
                     <td className="px-6 py-4 text-right">
                       <span
-                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${emp.totalPoin >= 20 ? "bg-emerald-50 text-emerald-700" : emp.totalPoin >= 17 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}
+                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${emp.totalPoin >= 1 ? "bg-emerald-50 text-emerald-700" : emp.totalPoin >= 0.5 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}
                       >
                         {emp.totalPoin.toFixed(1)}
                       </span>
@@ -306,9 +327,9 @@ export function PointsPage() {
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
-          totalItems={totalFilteredItems}
+          totalItems={totalItems}
           itemsPerPage={itemsPerPage}
-          onPageChange={setCurrentPage}
+          onPageChange={handlePageChange}
           itemLabel="karyawan"
         />
       </div>

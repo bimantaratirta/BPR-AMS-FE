@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -65,6 +65,8 @@ export function EmployeesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
+  const [deviceCounts, setDeviceCounts] = useState({ total: 0, registered: 0, unregistered: 0 });
+  const branchesRef = useRef<Branch[]>([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -93,15 +95,14 @@ export function EmployeesPage() {
       const params: any = {
         "pagination[page]": currentPage,
         "pagination[limit]": itemsPerPage,
-        include_relation: ["branch"],
       };
       if (debouncedSearch) params.search = debouncedSearch;
       if (branchFilter !== "Semua") {
-        const branchObj = branches.find((b) => b.name === branchFilter);
+        const branchObj = branchesRef.current.find((b) => b.name === branchFilter);
         if (branchObj) params["filter[branchId]"] = branchObj.id;
       }
-      if (deviceFilter === "registered") params["filter[deviceId_not]"] = "null";
-      else if (deviceFilter === "unregistered") params["filter[deviceId]"] = "null";
+      if (deviceFilter === "registered") params["filter[is_not_null][]"] = "deviceId";
+      if (deviceFilter === "unregistered") params["filter[is_null][]"] = "deviceId";
       const res = await api.get("/employees", { params });
       const data = res.data?.data ?? res.data;
       setEmployees(Array.isArray(data) ? data : (data?.data ?? []));
@@ -110,25 +111,21 @@ export function EmployeesPage() {
         setTotalPages(pagination.totalPages ?? 1);
         setTotalItems(pagination.totalItems ?? 0);
       }
+      if (res.data?.stats) setDeviceCounts(res.data.stats);
+      if (res.data?.branches) {
+        branchesRef.current = res.data.branches;
+        setBranches(res.data.branches);
+      }
     } catch (e: any) {
       setError("Gagal memuat data karyawan.");
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, currentPage, branchFilter, deviceFilter, branches]);
+  }, [debouncedSearch, currentPage, branchFilter, deviceFilter]);
 
   useEffect(() => {
     fetchEmployees();
   }, [fetchEmployees]);
-
-  useEffect(() => {
-    api.get("/branch", { params: { get_all: true } }).then((res) => {
-      const data = res.data?.data ?? res.data;
-      setBranches(Array.isArray(data) ? data : (data?.data ?? []));
-    });
-  }, []);
-
-  // Data is now server-side paginated and filtered
 
   const handleAdd = () => {
     setFormData({ ...emptyForm, branchId: branches[0]?.id ?? "" });
@@ -325,7 +322,7 @@ export function EmployeesPage() {
           {
             key: "all" as const,
             label: "Semua Karyawan",
-            value: totalItems,
+            value: deviceCounts.total,
             icon: Users,
             color: "text-blue-600",
             bg: "bg-blue-50",
@@ -334,7 +331,7 @@ export function EmployeesPage() {
           {
             key: "registered" as const,
             label: "Device Terdaftar",
-            value: "-",
+            value: deviceCounts.registered,
             icon: Smartphone,
             color: "text-emerald-600",
             bg: "bg-emerald-50",
@@ -343,7 +340,7 @@ export function EmployeesPage() {
           {
             key: "unregistered" as const,
             label: "Belum Ada Device",
-            value: "-",
+            value: deviceCounts.unregistered,
             icon: WifiOff,
             color: "text-red-600",
             bg: "bg-red-50",

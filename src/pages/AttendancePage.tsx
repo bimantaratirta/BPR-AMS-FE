@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, Camera, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../lib/api";
@@ -81,37 +81,39 @@ export function AttendancePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [selectedBranch, setSelectedBranch] = useState("Semua Cabang");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(() => new Date().toISOString().slice(0, 10));
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 20;
+  const [stats, setStats] = useState({ hadir: 0, terlambat: 0, izin: 0, alpha: 0 });
+  const branchesRef = useRef<{ id: string; name: string }[]>([]);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; name: string; date: string } | null>(null);
 
-  useEffect(() => {
-    api.get("/branch", { params: { get_all: true } }).then((res) => {
-      const data = res.data?.data ?? res.data;
-      setBranches(Array.isArray(data) ? data : (data?.data ?? []));
-    });
-  }, []);
+  const buildFilterParams = useCallback(() => {
+    const params: any = {};
+    if (dateFilter) params["filter[date]"] = dateFilter;
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (selectedBranch !== "Semua Cabang") {
+      const branchObj = branchesRef.current.find((b) => b.name === selectedBranch);
+      if (branchObj) params["filter[branchId]"] = branchObj.id;
+    }
+    return params;
+  }, [dateFilter, debouncedSearch, selectedBranch]);
 
+  // Single fetch: paginated data + stats + branches
   useEffect(() => {
     const fetchAttendances = async () => {
       setIsLoading(true);
       try {
-        const params: any = {
+        const params = {
+          ...buildFilterParams(),
           "pagination[page]": currentPage,
           "pagination[limit]": itemsPerPage,
         };
-        if (dateFilter) params["filter[date]"] = dateFilter;
-        if (debouncedSearch) params.search = debouncedSearch;
-        if (selectedBranch !== "Semua Cabang") {
-          const branchObj = branches.find((b) => b.name === selectedBranch);
-          if (branchObj) params["filter[branchId]"] = branchObj.id;
-        }
         const res = await api.get("/attendances", { params });
         const data = res.data?.data ?? res.data;
         setRecords(Array.isArray(data) ? data : (data?.data ?? []));
@@ -120,19 +122,17 @@ export function AttendancePage() {
           setTotalPages(pagination.totalPages ?? 1);
           setTotalItems(pagination.totalItems ?? 0);
         }
+        if (res.data?.stats) setStats(res.data.stats);
+        if (res.data?.branches) {
+          branchesRef.current = res.data.branches;
+          setBranches(res.data.branches);
+        }
       } finally {
         setIsLoading(false);
       }
     };
     fetchAttendances();
-  }, [dateFilter, currentPage, debouncedSearch, selectedBranch, branches]);
-
-  const stats = {
-    hadir: records.filter((r) => r.status === "HADIR").length,
-    terlambat: records.filter((r) => r.status === "TERLAMBAT").length,
-    izin: records.filter((r) => ["CUTI", "SAKIT", "SETENGAH_HARI"].includes(r.status)).length,
-    alpha: records.filter((r) => r.status === "ALPHA").length,
-  };
+  }, [currentPage, buildFilterParams]);
 
   const handleExportExcel = () => {
     const header = ["Tanggal", "Nama", "NIK", "Cabang", "Masuk", "Keluar", "Status", "Poin"];

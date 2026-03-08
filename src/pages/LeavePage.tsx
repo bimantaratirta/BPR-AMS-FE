@@ -111,31 +111,15 @@ export function LeavePage() {
         setTotalPages(pagination.totalPages ?? 1);
         setTotalItems(pagination.totalItems ?? 0);
       }
+      if (res.data?.counts) setCounts(res.data.counts);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchCounts = async () => {
-    try {
-      const res = await api.get("/leave-requests", { params: { get_all: true } });
-      const data = res.data?.data ?? res.data;
-      const all = Array.isArray(data) ? data : (data?.data ?? []);
-      setCounts({
-        PENDING: all.filter((r: any) => r.status === "PENDING").length,
-        APPROVED: all.filter((r: any) => r.status === "APPROVED").length,
-        REJECTED: all.filter((r: any) => r.status === "REJECTED").length,
-      });
-    } catch { /* ignore */ }
-  };
-
   useEffect(() => {
     fetchRequests();
   }, [currentPage, activeTab, debouncedSearch]);
-
-  useEffect(() => {
-    fetchCounts();
-  }, []);
 
   const confirmApprove = async () => {
     if (!selectedRequest) return;
@@ -145,7 +129,6 @@ export function LeavePage() {
       setShowApproveDialog(false);
       setSelectedRequest(null);
       fetchRequests();
-      fetchCounts();
     } catch (e: any) {
       showToast(e.response?.data?.message ?? "Gagal menyetujui permohonan.", "error");
     } finally {
@@ -166,9 +149,12 @@ export function LeavePage() {
       setSelectedRequest(null);
       setRejectReason("");
       fetchRequests();
-      fetchCounts();
     } catch (e: any) {
-      showToast(e.response?.data?.message ?? "Gagal menolak permohonan.", "error");
+      const validation = e.response?.data?.errors?.validation;
+      const errorMsg = validation
+        ? Object.values(validation).flat().join(", ")
+        : e.response?.data?.errors?.message ?? e.response?.data?.message ?? "Gagal menolak permohonan.";
+      showToast(errorMsg, "error");
     } finally {
       setIsActing(false);
     }

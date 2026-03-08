@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FileText, Download, Filter, Loader2 } from "lucide-react";
+import { FileText, Download, Filter, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
@@ -48,99 +48,22 @@ export function ReportsPage() {
 
     setIsGenerating(true);
     try {
-      // Fetch attendance records for the period
-      const attParams: Record<string, string> = {
-        get_all: "true",
-        "filter[startDate]": filters.startDate,
-        "filter[endDate]": filters.endDate,
+      const params: Record<string, string> = {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
       };
       if (filters.branch !== "Semua Cabang") {
         const br = branches.find((b) => b.name === filters.branch);
-        if (br) attParams["filter[branchId]"] = br.id;
+        if (br) params.branchId = br.id;
       }
 
-      // Fetch employees and attendance in parallel
-      const [attRes, empRes] = await Promise.all([
-        api.get("/attendances", { params: attParams }),
-        api.get("/employees", { params: { get_all: true } }),
-      ]);
-
-      const attendances = (() => {
-        const d = attRes.data?.data ?? attRes.data;
-        return Array.isArray(d) ? d : (d?.data ?? []);
-      })();
-
-      const employees = (() => {
-        const d = empRes.data?.data ?? empRes.data;
-        return Array.isArray(d) ? d : (d?.data ?? []);
-      })();
-
-      // Build employee map
-      const empMap = new Map<string, { name: string; nik: string; branch: string }>();
-      for (const emp of employees) {
-        empMap.set(emp.id, {
-          name: emp.name,
-          nik: emp.nik,
-          branch: emp.branch?.name ?? "-",
-        });
-      }
-
-      // Aggregate per employee
-      const agg = new Map<string, ReportRow>();
-      for (const att of attendances) {
-        const empId = att.employeeId ?? att.employee?.id;
-        if (!empId) continue;
-
-        if (!agg.has(empId)) {
-          const empInfo = empMap.get(empId) ?? {
-            name: att.employee?.name ?? "-",
-            nik: att.employee?.nik ?? "-",
-            branch: att.employee?.branch?.name ?? "-",
-          };
-          agg.set(empId, {
-            name: empInfo.name,
-            nik: empInfo.nik,
-            branch: empInfo.branch,
-            hadir: 0,
-            terlambat: 0,
-            izin: 0,
-            alpha: 0,
-            poin: 0,
-          });
-        }
-
-        const row = agg.get(empId)!;
-        row.poin += att.points ?? 0;
-
-        switch (att.status) {
-          case "HADIR":
-            row.hadir++;
-            break;
-          case "TERLAMBAT":
-            row.terlambat++;
-            break;
-          case "ALPHA":
-            row.alpha++;
-            break;
-          case "CUTI":
-          case "SAKIT":
-          case "SETENGAH_HARI":
-          case "IZIN_CUTI":
-          case "IZIN_SAKIT":
-          case "IZIN_SETENGAH_HARI":
-            row.izin++;
-            break;
-        }
-      }
-
-      // Filter by branch if needed (in case API doesn't filter)
-      let rows = Array.from(agg.values());
-      if (filters.branch !== "Semua Cabang") {
-        rows = rows.filter((r) => r.branch === filters.branch);
-      }
-
+      const res = await api.get("/attendances/report-summary", { params });
+      const data = res.data?.data ?? res.data;
+      let rows: ReportRow[] = Array.isArray(data) ? data : [];
       rows.sort((a, b) => a.name.localeCompare(b.name));
       setReportData(rows);
+      setCurrentPage(1);
+      if (res.data?.branches) setBranches(res.data.branches);
       setIsGenerated(true);
     } catch {
       showToast("Gagal generate laporan. Coba lagi.", "error");
@@ -148,6 +71,9 @@ export function ReportsPage() {
       setIsGenerating(false);
     }
   };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const filteredData = reportData;
 
@@ -161,6 +87,9 @@ export function ReportsPage() {
     }),
     { hadir: 0, terlambat: 0, izin: 0, alpha: 0, poin: 0 },
   );
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+  const paginatedData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleExportXlsx = async () => {
     try {
@@ -346,7 +275,7 @@ export function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredData.map((row) => (
+                  {paginatedData.map((row) => (
                     <tr key={row.nik} className="hover:bg-gray-50/80 transition-colors">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{row.nik}</td>
@@ -374,6 +303,68 @@ export function ReportsPage() {
               </table>
             )}
           </div>
+
+          {/* Pagination */}
+          {filteredData.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>Tampilkan</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    setRowsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  {[10, 25, 50, 100].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <span>dari {filteredData.length} data</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "..." ? (
+                      <span key={`dot-${i}`} className="px-2 text-gray-400 text-sm">...</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p as number)}
+                        className={`min-w-[32px] h-8 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === p
+                            ? "bg-blue-600 text-white"
+                            : "hover:bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
     </motion.div>

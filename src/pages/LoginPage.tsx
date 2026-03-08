@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
 import api from "../lib/api";
 
 interface LoginPageProps {
@@ -72,9 +72,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1, duration: 0.5 }}
-            className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white mx-auto mb-5 shadow-lg shadow-blue-600/20"
+            className="mx-auto mb-5"
           >
-            <Building2 size={32} />
+            <img src="/logo1.png" alt="BPR Sahabat Sejati" className="w-20 h-20 rounded-full object-cover shadow-lg mx-auto" />
           </motion.div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">BPR Sahabat Sejati</h1>
           <p className="text-gray-500 text-sm mt-1.5">Sistem Manajemen Absensi Karyawan</p>

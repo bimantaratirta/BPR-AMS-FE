@@ -40,11 +40,9 @@ export function Sidebar({ activePage, onNavigate, onLogout, userRole = "ADMIN", 
   return (
     <aside className="fixed left-0 top-0 h-full bg-white border-r border-gray-100 z-50 transition-all duration-300 ease-in-out w-20 hover:w-64 group shadow-sm overflow-hidden flex flex-col">
       {/* Logo Area */}
-      <div className="h-20 flex items-center px-6 border-b border-gray-50">
-        <div className="flex items-center gap-4 min-w-max">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
-            <Building2 size={18} />
-          </div>
+      <div className="h-20 flex items-center px-4 border-b border-gray-50">
+        <div className="flex items-center gap-3 min-w-max">
+          <img src="/logo1.png" alt="BPR Sahabat Sejati" className="w-10 h-10 rounded-full shrink-0 object-cover" />
           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 font-semibold text-gray-900 whitespace-nowrap">
             BPR Sahabat Sejati
           </div>

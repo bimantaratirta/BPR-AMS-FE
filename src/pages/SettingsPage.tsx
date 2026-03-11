@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Clock, MapPin, Save, User, Mail, Shield, Loader2, Building, Globe, Upload, Image } from "lucide-react";
 import { motion } from "framer-motion";
-import api from "../lib/api";
+import api, { getAssetUrl } from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 
 interface AppSettings {
@@ -194,7 +194,7 @@ export function SettingsPage({ currentUser }: SettingsPageProps) {
                 <label className="text-sm font-medium text-gray-700 mb-1.5 block">Logo Perusahaan</label>
                 <div className="flex items-center gap-4">
                   {logoPreview && (
-                    <img src={logoPreview} alt="Logo" className="w-12 h-12 rounded-lg object-contain border border-gray-200" />
+                    <img src={getAssetUrl(logoPreview)} alt="Logo" className="w-12 h-12 rounded-lg object-contain border border-gray-200" />
                   )}
                   <label className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 cursor-pointer hover:bg-gray-50 transition-colors">
                     <Upload size={16} />

@@ -3,7 +3,7 @@ import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, Camera, 
 import { motion, AnimatePresence } from "framer-motion";
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import api from "../lib/api";
+import api, { getAssetUrl } from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 import { useDebounce } from "../hooks/useDebounce";
 import { Pagination } from "../components/Pagination";
@@ -587,7 +587,7 @@ export function AttendancePage() {
                       {selectedAttendance.checkInPhoto ? (
                         <div className="p-4">
                           <img
-                            src={selectedAttendance.checkInPhoto}
+                            src={getAssetUrl(selectedAttendance.checkInPhoto)}
                             alt={`Foto absensi ${selectedAttendance.employee?.name ?? ""}`}
                             className="w-full rounded-2xl object-cover max-h-[380px] bg-gray-100"
                           />

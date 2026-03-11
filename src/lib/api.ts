@@ -29,4 +29,12 @@ api.interceptors.response.use(
     }
 );
 
+export const S3_BASE_URL = 'https://is3.cloudhost.id/bpr-ams';
+
+export function getAssetUrl(path: string | null | undefined): string | undefined {
+    if (!path) return undefined;
+    if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+    return `${S3_BASE_URL}${path}`;
+}
+
 export default api;

@@ -88,10 +88,18 @@ export function AttendancePage() {
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 20;
   const [stats, setStats] = useState({ hadir: 0, terlambat: 0, izin: 0, alpha: 0 });
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const branchesRef = useRef<{ id: string; name: string }[]>([]);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; name: string; date: string } | null>(null);
+
+  const STATUS_FILTER_MAP: Record<string, string> = {
+    HADIR: "HADIR",
+    TERLAMBAT: "TERLAMBAT",
+    IZIN: "IZIN",
+    ALPHA: "ALPHA",
+  };
 
   const buildFilterParams = useCallback(() => {
     const params: any = {};
@@ -101,8 +109,11 @@ export function AttendancePage() {
       const branchObj = branchesRef.current.find((b) => b.name === selectedBranch);
       if (branchObj) params["filter[branchId]"] = branchObj.id;
     }
+    if (statusFilter && STATUS_FILTER_MAP[statusFilter]) {
+      params["filter[status]"] = STATUS_FILTER_MAP[statusFilter];
+    }
     return params;
-  }, [dateFilter, debouncedSearch, selectedBranch]);
+  }, [dateFilter, debouncedSearch, selectedBranch, statusFilter]);
 
   // Single fetch: paginated data + stats + branches
   useEffect(() => {
@@ -178,21 +189,34 @@ export function AttendancePage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Hadir", value: stats.hadir, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Terlambat", value: stats.terlambat, color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "Izin / Sakit", value: stats.izin, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Alpha", value: stats.alpha, color: "text-red-600", bg: "bg-red-50" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between"
-          >
-            <span className="text-sm font-medium text-gray-500">{stat.label}</span>
-            <span className={`text-xl font-bold px-3 py-1 rounded-lg ${stat.bg} ${stat.color}`}>
-              {isLoading ? "..." : stat.value}
-            </span>
-          </div>
-        ))}
+          { label: "Total Hadir", value: stats.hadir, color: "text-emerald-600", bg: "bg-emerald-50", ring: "ring-emerald-400", filterKey: "HADIR" },
+          { label: "Terlambat", value: stats.terlambat, color: "text-amber-600", bg: "bg-amber-50", ring: "ring-amber-400", filterKey: "TERLAMBAT" },
+          { label: "Izin / Sakit", value: stats.izin, color: "text-blue-600", bg: "bg-blue-50", ring: "ring-blue-400", filterKey: "IZIN" },
+          { label: "Alpha", value: stats.alpha, color: "text-red-600", bg: "bg-red-50", ring: "ring-red-400", filterKey: "ALPHA" },
+        ].map((stat) => {
+          const isActive = stat.filterKey && statusFilter === stat.filterKey;
+          return (
+            <button
+              key={stat.label}
+              onClick={() => {
+                if (!stat.filterKey) return;
+                setStatusFilter(isActive ? null : stat.filterKey);
+                setCurrentPage(1);
+              }}
+              className={`bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between w-full text-left transition-all duration-150 ${
+                stat.filterKey ? "cursor-pointer hover:shadow-md" : "cursor-default"
+              } ${isActive ? `ring-2 ${stat.ring} border-transparent` : "border-gray-100"}`}
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium text-gray-500">{stat.label}</span>
+                {isActive && <span className="text-[10px] text-gray-400">Klik untuk hapus filter</span>}
+              </div>
+              <span className={`text-xl font-bold px-3 py-1 rounded-lg ${stat.bg} ${stat.color}`}>
+                {isLoading ? "..." : stat.value}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}

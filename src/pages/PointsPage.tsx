@@ -19,9 +19,9 @@ interface AggregatedEmployee {
 
 interface SummaryMetrics {
   totalPoin: number;
-  avgPoin: number;
   totalHadir: number;
-  totalTerlambat: number;
+  totalSetengahPoin: number;
+  totalTerlambatAlpha: number;
 }
 
 export function PointsPage() {
@@ -38,7 +38,8 @@ export function PointsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [metrics, setMetrics] = useState<SummaryMetrics>({ totalPoin: 0, avgPoin: 0, totalHadir: 0, totalTerlambat: 0 });
+  const [metrics, setMetrics] = useState<SummaryMetrics>({ totalPoin: 0, totalHadir: 0, totalSetengahPoin: 0, totalTerlambatAlpha: 0 });
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const itemsPerPage = 20;
 
   const fetchSummary = useCallback(
@@ -51,6 +52,7 @@ export function PointsPage() {
         if (debouncedSearch) params.search = debouncedSearch;
         const branchObj = branchesRef.current.find((b) => b.name === selectedBranch);
         if (branchObj) params.branchId = branchObj.id;
+        if (typeFilter) params.filterType = typeFilter;
 
         const res = await api.get("/point-records/summary", { params });
         const data = res.data?.data ?? res.data;
@@ -68,7 +70,7 @@ export function PointsPage() {
         setIsLoading(false);
       }
     },
-    [startDate, endDate, debouncedSearch, selectedBranch],
+    [startDate, endDate, debouncedSearch, selectedBranch, typeFilter],
   );
 
   useEffect(() => {
@@ -166,31 +168,57 @@ export function PointsPage() {
           {
             label: "Total Poin",
             value: isLoading ? "..." : metrics.totalPoin.toFixed(1),
-            color: "text-amber-600",
-            bg: "bg-amber-50",
-          },
-          {
-            label: "Rata-rata",
-            value: isLoading ? "..." : metrics.avgPoin.toFixed(1),
             color: "text-blue-600",
             bg: "bg-blue-50",
+            ring: "ring-blue-400",
+            filterKey: null,
           },
           {
             label: "Tepat Waktu",
             value: isLoading ? "..." : metrics.totalHadir,
             color: "text-emerald-600",
             bg: "bg-emerald-50",
+            ring: "ring-emerald-400",
+            filterKey: "HADIR",
           },
-          { label: "Terlambat", value: isLoading ? "..." : metrics.totalTerlambat, color: "text-red-600", bg: "bg-red-50" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between"
-          >
-            <span className="text-sm font-medium text-gray-500">{stat.label}</span>
-            <span className={`text-xl font-bold px-3 py-1 rounded-lg ${stat.bg} ${stat.color}`}>{stat.value}</span>
-          </div>
-        ))}
+          {
+            label: "Setengah Poin",
+            value: isLoading ? "..." : metrics.totalSetengahPoin,
+            color: "text-amber-600",
+            bg: "bg-amber-50",
+            ring: "ring-amber-400",
+            filterKey: "SETENGAH_POIN",
+          },
+          {
+            label: "Terlambat / Alpha",
+            value: isLoading ? "..." : metrics.totalTerlambatAlpha,
+            color: "text-red-600",
+            bg: "bg-red-50",
+            ring: "ring-red-400",
+            filterKey: "TERLAMBAT_ALPHA",
+          },
+        ].map((stat) => {
+          const isActive = stat.filterKey !== null && typeFilter === stat.filterKey;
+          return (
+            <button
+              key={stat.label}
+              onClick={() => {
+                if (!stat.filterKey) return;
+                setTypeFilter(isActive ? null : stat.filterKey);
+                setCurrentPage(1);
+              }}
+              className={`bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between w-full text-left transition-all duration-150 ${
+                stat.filterKey ? "cursor-pointer hover:shadow-md" : "cursor-default"
+              } ${isActive ? `ring-2 ${stat.ring} border-transparent` : "border-gray-100"}`}
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium text-gray-500">{stat.label}</span>
+                {isActive && <span className="text-[10px] text-gray-400">Klik untuk hapus filter</span>}
+              </div>
+              <span className={`text-xl font-bold px-3 py-1 rounded-lg ${stat.bg} ${stat.color}`}>{stat.value}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter */}

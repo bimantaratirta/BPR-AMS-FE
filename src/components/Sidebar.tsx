@@ -31,7 +31,7 @@ const allNavItems = [
   { id: "points", icon: Star, label: "Poin Kehadiran", roles: ["SUPER_ADMIN", "ADMIN", "VIEWER"] },
   { id: "reports", icon: BarChart3, label: "Laporan", roles: ["SUPER_ADMIN", "ADMIN", "VIEWER"] },
   { id: "admins", icon: ShieldCheck, label: "Manajemen Admin", roles: ["SUPER_ADMIN"] },
-  { id: "settings", icon: Settings, label: "Pengaturan", roles: ["SUPER_ADMIN", "ADMIN"] },
+  // { id: "settings", icon: Settings, label: "Pengaturan", roles: ["SUPER_ADMIN", "ADMIN"] },
 ];
 
 export function Sidebar({ activePage, onNavigate, onLogout, userRole = "ADMIN", userName, userEmail }: SidebarProps) {

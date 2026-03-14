@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bpr-dashboard
+    container_name: bpr_ams_fe
     ports:
-      - "43210:80"
+      - "3011:80"
     restart: unless-stopped

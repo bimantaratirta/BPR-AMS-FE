@@ -29,7 +29,7 @@ api.interceptors.response.use(
     }
 );
 
-export const S3_BASE_URL = 'https://is3.cloudhost.id/bpr-ams';
+export const S3_BASE_URL = import.meta.env.VITE_S3_BASE_URL as string;
 
 export function getAssetUrl(path: string | null | undefined): string | undefined {
     if (!path) return undefined;

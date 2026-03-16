@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Check, X, Calendar, FileText, AlertCircle, Paperclip, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../lib/api";
+import api, { S3_BASE_URL } from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 import { useDebounce } from "../hooks/useDebounce";
 import { Pagination } from "../components/Pagination";
@@ -248,7 +248,7 @@ export function LeavePage() {
                       {request.attachment && (
                         <button
                           onClick={() => {
-                            setSelectedAttachment({ url: request.attachment!, name: request.employee?.name ?? "" });
+                            setSelectedAttachment({ url: `${S3_BASE_URL}${request.attachment}`, name: request.employee?.name ?? "" });
                             setShowAttachmentModal(true);
                           }}
                           className="flex items-center gap-1.5 mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"

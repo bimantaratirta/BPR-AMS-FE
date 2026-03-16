@@ -13,6 +13,8 @@ import {
   Users,
   WifiOff,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
@@ -74,6 +76,7 @@ export function EmployeesPage() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const emptyForm: EmployeeForm = {
@@ -146,6 +149,7 @@ export function EmployeesPage() {
       isActive: emp.isActive,
     });
     setFormErrors({});
+    setShowPassword(false);
     setShowEditModal(true);
   };
 
@@ -505,7 +509,7 @@ export function EmployeesPage() {
               <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">NIK (16 digit)</label>
+                    <label className="text-sm font-medium text-gray-700">NIK</label>
                     <input
                       type="text"
                       value={formData.nik}
@@ -547,18 +551,28 @@ export function EmployeesPage() {
                   />
                   {formErrors.email && <p className="text-xs text-red-500">{formErrors.email}</p>}
                 </div>
-                {showAddModal && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Password</label>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    {showEditModal ? "Password Baru (kosongkan jika tidak diubah)" : "Password"}
+                  </label>
+                  <div className="relative">
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className={`w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.password ? "border-red-400" : "border-gray-200"}`}
+                      placeholder={showEditModal ? "Kosongkan jika tidak diubah" : "Masukkan password"}
+                      className={`w-full px-3 py-2 pr-10 bg-gray-50 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none ${formErrors.password ? "border-red-400" : "border-gray-200"}`}
                     />
-                    {formErrors.password && <p className="text-xs text-red-500">{formErrors.password}</p>}
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
-                )}
+                  {formErrors.password && <p className="text-xs text-red-500">{formErrors.password}</p>}
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Kantor Cabang</label>
                   <select

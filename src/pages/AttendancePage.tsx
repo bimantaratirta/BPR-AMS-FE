@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, Camera, Loader2, Eye, MapPin, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, useMap } from "react-leaflet";
@@ -235,6 +237,7 @@ export function AttendancePage() {
   const branchesRef = useRef<{ id: string; name: string }[]>([]);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
 
@@ -328,9 +331,61 @@ export function AttendancePage() {
     }
   };
 
-  const handleExportPDF = () => {
-    setShowExportDialog(false);
-    window.print();
+  const handleExportPDF = async () => {
+    setIsExportingPdf(true);
+    try {
+      const res = await api.get("/attendances", {
+        params: { ...buildFilterParams(), get_all: true },
+      });
+      const data = res.data?.data ?? res.data;
+      const allRecords: AttendanceRecord[] = Array.isArray(data) ? data : (data?.data ?? []);
+
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+      const title = `Laporan Absensi — ${dateFilter ? new Date(dateFilter).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "Semua Tanggal"}`;
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, 14, 16);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120);
+      doc.text(`Dicetak: ${new Date().toLocaleString("id-ID")}  |  Total: ${allRecords.length} data`, 14, 23);
+      doc.setTextColor(0);
+
+      autoTable(doc, {
+        startY: 28,
+        head: [["Tanggal", "Nama", "NIK", "Cabang", "Masuk", "Keluar", "Status", "Poin"]],
+        body: allRecords.map((r) => [
+          formatDate(r.date),
+          r.employee?.name ?? "-",
+          r.employee?.nik ?? "-",
+          r.employee?.branch?.name ?? r.branch?.name ?? "-",
+          formatTime(r.checkInTime),
+          formatTime(r.checkOutTime),
+          STATUS_LABEL[r.status] ?? r.status,
+          r.points,
+        ]),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 28 },
+          4: { halign: "center" },
+          5: { halign: "center" },
+          6: { halign: "center" },
+          7: { halign: "center", cellWidth: 16 },
+        },
+      });
+
+      doc.save(`absensi-${dateFilter || "semua"}.pdf`);
+      setShowExportDialog(false);
+      showToast(`PDF berhasil diunduh! (${allRecords.length} baris)`);
+    } catch {
+      showToast("Gagal generate PDF.", "error");
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const openDetailModal = (record: AttendanceRecord) => {
@@ -712,10 +767,15 @@ export function AttendancePage() {
                   </button>
                   <button
                     onClick={handleExportPDF}
-                    className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all group"
+                    disabled={isExportingPdf}
+                    className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <FileText size={24} className="mb-2 text-gray-400 group-hover:text-red-600" />
-                    <span className="text-sm font-medium">PDF (.pdf)</span>
+                    {isExportingPdf ? (
+                      <Loader2 size={24} className="mb-2 text-red-600 animate-spin" />
+                    ) : (
+                      <FileText size={24} className="mb-2 text-gray-400 group-hover:text-red-600" />
+                    )}
+                    <span className="text-sm font-medium">{isExportingPdf ? "Memproses..." : "PDF (.pdf)"}</span>
                   </button>
                 </div>
               </div>

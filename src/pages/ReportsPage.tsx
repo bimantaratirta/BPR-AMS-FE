@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { FileText, Download, Filter, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { motion } from "framer-motion";
 import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
@@ -118,13 +120,60 @@ export function ReportsPage() {
     }
   };
 
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    const title = "Laporan Rekap Absensi Karyawan";
+    const subtitle = `Periode: ${formatDateLabel(filters.startDate)} - ${formatDateLabel(filters.endDate)}${filters.branch !== "Semua Cabang" ? `  |  ${filters.branch}` : ""}`;
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, 14, 16);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text(subtitle, 14, 23);
+    doc.text(`Dicetak: ${new Date().toLocaleString("id-ID")}  |  Total: ${filteredData.length} karyawan`, 14, 29);
+    doc.setTextColor(0);
+
+    autoTable(doc, {
+      startY: 34,
+      head: [["Nama Karyawan", "NIK", "Cabang", "Hadir", "Terlambat", "Izin", "Alpha", "Total Poin"]],
+      body: [
+        ...filteredData.map((r) => [r.name, r.nik, r.branch, r.hadir, r.terlambat, r.izin, r.alpha, r.poin]),
+        ["TOTAL", "", "", totals.hadir, totals.terlambat, totals.izin, totals.alpha, totals.poin],
+      ],
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      bodyStyles: {},
+      didParseCell: (data) => {
+        if (data.row.index === filteredData.length) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [226, 232, 240];
+        }
+      },
+      columnStyles: {
+        3: { halign: "center" },
+        4: { halign: "center" },
+        5: { halign: "center" },
+        6: { halign: "center" },
+        7: { halign: "center" },
+      },
+    });
+
+    doc.save(`laporan-absensi-${filters.startDate}_${filters.endDate}.pdf`);
+    showToast("PDF berhasil diunduh!");
+  };
+
   const handleExport = (type: "Excel" | "CSV" | "PDF") => {
     if (type === "Excel") {
       handleExportXlsx();
     } else if (type === "CSV") {
       exportCSV();
     } else {
-      window.print();
+      exportPDF();
     }
   };
 

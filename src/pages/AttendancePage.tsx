@@ -234,6 +234,7 @@ export function AttendancePage() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const branchesRef = useRef<{ id: string; name: string }[]>([]);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
 
@@ -287,31 +288,44 @@ export function AttendancePage() {
     fetchAttendances();
   }, [currentPage, buildFilterParams]);
 
-  const handleExportExcel = () => {
-    const header = ["Tanggal", "Nama", "NIK", "Cabang", "Masuk", "Keluar", "Status", "Poin"];
-    const rows = records.map((r) => [
-      formatDate(r.date),
-      r.employee?.name ?? "-",
-      r.employee?.nik ?? "-",
-      r.employee?.branch?.name ?? r.branch?.name ?? "-",
-      formatTime(r.checkInTime),
-      formatTime(r.checkOutTime),
-      STATUS_LABEL[r.status] ?? r.status,
-      r.points,
-    ]);
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      const res = await api.get("/attendances", {
+        params: { ...buildFilterParams(), get_all: true },
+      });
+      const data = res.data?.data ?? res.data;
+      const allRecords: AttendanceRecord[] = Array.isArray(data) ? data : (data?.data ?? []);
 
-    const csvContent = [header, ...rows].map((row) => row.map((c) => `"${c}"`).join(",")).join("\n");
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `absensi-${dateFilter || "semua"}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const header = ["Tanggal", "Nama", "NIK", "Cabang", "Masuk", "Keluar", "Status", "Poin"];
+      const rows = allRecords.map((r) => [
+        formatDate(r.date),
+        r.employee?.name ?? "-",
+        r.employee?.nik ?? "-",
+        r.employee?.branch?.name ?? r.branch?.name ?? "-",
+        formatTime(r.checkInTime),
+        formatTime(r.checkOutTime),
+        STATUS_LABEL[r.status] ?? r.status,
+        r.points,
+      ]);
 
-    setShowExportDialog(false);
-    showToast("Data berhasil diexport!");
+      const csvContent = [header, ...rows].map((row) => row.map((c) => `"${c}"`).join(",")).join("\n");
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `absensi-${dateFilter || "semua"}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setShowExportDialog(false);
+      showToast(`Data berhasil diexport! (${allRecords.length} baris)`);
+    } catch {
+      showToast("Gagal mengambil data untuk export.", "error");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleExportPDF = () => {
@@ -686,10 +700,15 @@ export function AttendancePage() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={handleExportExcel}
-                    className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all group"
+                    disabled={isExporting}
+                    className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <FileSpreadsheet size={24} className="mb-2 text-gray-400 group-hover:text-emerald-600" />
-                    <span className="text-sm font-medium">Excel (.csv)</span>
+                    {isExporting ? (
+                      <Loader2 size={24} className="mb-2 text-emerald-600 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet size={24} className="mb-2 text-gray-400 group-hover:text-emerald-600" />
+                    )}
+                    <span className="text-sm font-medium">{isExporting ? "Memproses..." : "Excel (.csv)"}</span>
                   </button>
                   <button
                     onClick={handleExportPDF}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Check, X, Calendar, FileText, AlertCircle, Paperclip, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import api, { S3_BASE_URL } from "../lib/api";
+import api from "../lib/api";
 import { useToast, Toast } from "../components/Toast";
 import { useDebounce } from "../hooks/useDebounce";
 import { Pagination } from "../components/Pagination";
@@ -85,7 +85,8 @@ export function LeavePage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
-  const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
+  const [selectedAttachment, setSelectedAttachment] = useState<{ id: string; name: string } | null>(null);
+  const [isOpeningAttachment, setIsOpeningAttachment] = useState(false);
   const [isActing, setIsActing] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -248,7 +249,7 @@ export function LeavePage() {
                       {request.attachment && (
                         <button
                           onClick={() => {
-                            setSelectedAttachment({ url: `${S3_BASE_URL}${request.attachment}`, name: request.employee?.name ?? "" });
+                            setSelectedAttachment({ id: request.id, name: request.employee?.name ?? "" });
                             setShowAttachmentModal(true);
                           }}
                           className="flex items-center gap-1.5 mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
@@ -436,15 +437,35 @@ export function LeavePage() {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-1">Lampiran</h3>
                 <p className="text-sm text-gray-500 mb-4">Dari: {selectedAttachment.name}</p>
-                <a
-                  href={selectedAttachment.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                <button
+                  type="button"
+                  disabled={isOpeningAttachment}
+                  onClick={async () => {
+                    if (!selectedAttachment) return;
+                    setIsOpeningAttachment(true);
+                    const popup = window.open("about:blank", "_blank");
+                    try {
+                      const res = await api.get(`/leave-requests/${selectedAttachment.id}/attachment-url`);
+                      const url = res.data?.data?.url as string | undefined;
+                      if (!url) throw new Error("URL lampiran tidak tersedia");
+                      if (popup) {
+                        popup.location.href = url;
+                      } else {
+                        window.location.href = url;
+                      }
+                    } catch (err) {
+                      popup?.close();
+                      const message = err instanceof Error ? err.message : "Gagal membuka lampiran";
+                      showToast(message, "error");
+                    } finally {
+                      setIsOpeningAttachment(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                 >
-                  <FileText size={16} />
-                  Buka Lampiran
-                </a>
+                  {isOpeningAttachment ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                  {isOpeningAttachment ? "Membuka..." : "Buka Lampiran"}
+                </button>
               </div>
               <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
                 <button
